@@ -1,4 +1,6 @@
 #![allow(deprecated)]
+// tauri-nspanel's panel_event! grammar requires explicit return types, including `()`.
+#![allow(clippy::unused_unit)]
 use tauri::{AppHandle, Emitter, EventTarget, Manager, WebviewWindow};
 use tauri_nspanel::{CollectionBehavior, PanelLevel, StyleMask, WebviewWindowExt, tauri_panel};
 use tauri_plugin_custom_window::MAIN_WINDOW_LABEL;
