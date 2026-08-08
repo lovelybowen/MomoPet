@@ -1,0 +1,19 @@
+{
+  "identifier": "com.4096bytes.momopet.live2d",
+  "bundle": {
+    "windows": {
+      "digestAlgorithm": "sha256",
+      "nsis": {
+        "languages": [
+          "English",
+          "Vietnamese",
+          "PortugueseBR",
+          "SimpChinese",
+          "TradChinese"
+        ],
+        "installMode": "both",
+        "displayLanguageSelector": true
+      }
+    }
+  }
+}

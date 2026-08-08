@@ -1,0 +1,6 @@
+{
+  "identifier": "com.4096bytes.momopet.live2d",
+  "bundle": {
+    "resources": ["assets/tray-mac.png", "assets/models"]
+  }
+}
