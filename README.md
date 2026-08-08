@@ -26,6 +26,10 @@ pnpm check
 pnpm tauri dev
 ```
 
+## 开发流程
+
+本仓库采用只有一个长期 `master` 分支的 GitHub Flow。所有改动从最新 `master` 创建短期分支，通过必需 CI 后以 Squash 方式合并；不得直接推送 `master`。分支、提交、PR 和合并后清理规则见 [AGENTS.md](AGENTS.md)。
+
 ## Live2D 本地依赖
 
 从 Live2D 官方 Cubism SDK for Web 中取得 `live2dcubismcore.min.js`，放到：
