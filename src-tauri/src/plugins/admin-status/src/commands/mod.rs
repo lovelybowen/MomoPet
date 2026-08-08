@@ -31,7 +31,7 @@ pub fn is_running_as_administrator() -> Result<bool, String> {
 
             result.map_err(|error| error.to_string())?;
 
-            return Ok(elevation.TokenIsElevated != 0);
+            Ok(elevation.TokenIsElevated != 0)
         }
     }
 
