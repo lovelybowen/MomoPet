@@ -9,10 +9,11 @@
 ```bash
 git switch master
 git pull --ff-only origin master
-git switch -c <type>/<short-description>
+branch_name="chore/update-ci"
+git switch -c "$branch_name"
 ```
 
-分支类型使用 `feat`、`fix`、`docs` 或 `chore`。保持分支聚焦，避免在同一个 PR 中混入无关重构。
+将示例变量替换为实际分支名；分支类型使用 `feat`、`fix`、`docs` 或 `chore`。保持分支聚焦，避免在同一个 PR 中混入无关重构。
 
 ## 提交与验证
 
@@ -29,16 +30,19 @@ git switch -c <type>/<short-description>
 
 ## 合并后清理
 
-GitHub 会自动删除已合并的远程短期分支。确认 PR 已合并且远程分支已删除后，再清理本地分支：
+GitHub 会自动删除已合并的远程短期分支。Squash 后原分支提交不是 `master` 的祖先，因此普通的 `git branch -d` 可能拒绝删除。先在 GitHub 确认 PR 已合并，再验证远程查询无输出且本地分支与 `master` 内容一致：
 
 ```bash
+branch_name="chore/update-ci"
 git switch master
 git pull --ff-only origin master
 git fetch --prune origin
-git branch -d <type>/<short-description>
+git ls-remote --heads origin "refs/heads/$branch_name"
+git diff --quiet master "$branch_name"
+git branch -D "$branch_name"
 ```
 
-不要强制删除尚未确认合并的分支。
+只有前两项证明都成立时才可执行最后的强制删除；否则保留本地分支并先查明差异。
 
 ## 发布
 
