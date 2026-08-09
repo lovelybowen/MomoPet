@@ -3,14 +3,13 @@ export const LISTEN_KEY = {
   HIDE_WINDOW: 'hide-window',
   DEVICE_CHANGED: 'device-changed',
   GAMEPAD_CHANGED: 'gamepad-changed',
-  START_MOTION: 'start-motion',
-  SET_EXPRESSION: 'set-expression',
+  START_ACTION: 'start-action',
 } as const
 
 export const INVOKE_KEY = {
-  IMPORT_MODEL: 'import_live2d_model',
-  LIST_MODELS: 'list_installed_live2d_models',
-  REMOVE_MODEL: 'remove_live2d_model',
+  IMPORT_PET: 'import_pet_package',
+  LIST_PETS: 'list_installed_pets',
+  REMOVE_PET: 'remove_installed_pet',
   START_DEVICE_LISTENING: 'start_device_listening',
   STOP_DEVICE_LISTENING: 'stop_device_listening',
   START_GAMEPAD_LISTENING: 'start_gamepad_listening',

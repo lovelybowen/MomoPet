@@ -6,9 +6,9 @@
         "switching": "Đang chuyển đổi..."
       },
       "empty": {
-        "title": "Chưa cài đặt mô hình Live2D",
-        "description": "Nhập một mô hình có thể phân phối lại để hiển thị thú cưng tại đây.",
-        "action": "Mở quản lý mô hình"
+        "title": "Chưa cài đặt thú cưng",
+        "description": "Nhập một gói .momopet để hiển thị thú cưng tại đây.",
+        "action": "Mở thư viện thú cưng"
       }
     },
     "preference": {
@@ -54,33 +54,26 @@
         }
       },
       "model": {
-        "title": "Mô hình",
+        "title": "Thư viện thú cưng",
         "labels": {
-          "deleteModel": "Xóa mô hình"
+          "deleteModel": "Xóa thú cưng"
         },
         "hints": {
           "deleteSuccess": "Xóa thành công",
-          "deleteModel": "Bạn chắc muốn xóa mô hình này?",
+          "deleteModel": "Bạn chắc muốn xóa thú cưng này?",
           "importSuccess": "Nhập thành công",
-          "clickOrDragToImport": "Nhấp hoặc kéo tệp vào đây"
+          "clickOrDragToImport": "Nhấp hoặc kéo gói .momopet vào đây"
         },
         "tooltips": {
-          "selectModel": "Chọn mô hình",
-          "behavior": "Chuyển động và biểu cảm"
+          "selectModel": "Chọn thú cưng",
+          "behavior": "Hành động tùy chỉnh"
         },
         "behaviorModal": {
-          "title": "Chuyển động và Biểu cảm",
-          "labels": {
-            "motion": "Chuyển động",
-            "expression": "Biểu cảm",
-            "motionIndex": "Chuyển động {index}",
-            "motionGroupIndex": "Nhóm chuyển động {index}",
-            "expressionIndex": "Biểu cảm {index}"
-          }
+          "title": "Hành động tùy chỉnh"
         },
         "empty": {
-          "title": "Thư viện mô hình đang trống",
-          "description": "Nhập một mô hình Live2D hoàn chỉnh từ thư mục cục bộ."
+          "title": "Thư viện thú cưng đang trống",
+          "description": "Nhập một gói thú cưng .momopet."
         }
       },
       "shortcut": {
@@ -131,7 +124,7 @@
           "windowRadius": "Độ bo tròn cửa sổ",
           "opacity": "Độ mờ",
           "motionSound": "Âm thanh hành động",
-          "behavior": "Hành động và Biểu cảm",
+          "behavior": "Hành động tùy chỉnh",
           "autoReleaseDelay": "Độ trễ tự động nhả phím",
           "hideOnHover": "Ẩn khi di chuột",
           "maxFPS": "Tốc độ khung hình tối đa",
@@ -142,7 +135,7 @@
           "mouseMirror": "Khi bật, chuột của mô hình sẽ phản chiếu theo chuyển động chuột thực tế.",
           "ignoreMouse": "Khi bật, mô hình sẽ không phản hồi sự kiện chuột. Hữu ích cho chế độ bàn phím hoặc chế độ tay cầm.",
           "motionSound": "Khi bật, mô hình sẽ phát các âm thanh tương ứng khi thực hiện hành động (nếu tồn tại).",
-          "behavior": "Khi bật, các hành động và biểu cảm có thể được cấu hình và kích hoạt.",
+          "behavior": "Khi bật, có thể cấu hình và kích hoạt các hành động được khai báo trong gói thú cưng.",
           "passThrough": "Bật để cửa sổ không ảnh hưởng đến thao tác trên ứng dụng khác.",
           "alwaysOnTop": "Bật để cửa sổ luôn nằm trên ứng dụng khác.",
           "keepInScreen": "Khi bật, cửa sổ sẽ tự động giữ trong ranh giới màn hình.",

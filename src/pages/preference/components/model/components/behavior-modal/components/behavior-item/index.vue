@@ -15,9 +15,9 @@ useKeyPress(modelValue, () => {
 
 <template>
   <div class="flex items-center justify-between px-4 py-2 not-last:(b-b b-b-solid b-border-sec)">
-    <span>{{ label }}</span>
+    <span class="min-w-0 flex-1 break-words pr-3">{{ label }}</span>
 
-    <div class="flex items-center">
+    <div class="flex shrink-0 items-center">
       <Shortcut v-model="modelValue" />
 
       <Divider type="vertical" />

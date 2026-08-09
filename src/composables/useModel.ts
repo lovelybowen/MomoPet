@@ -4,14 +4,13 @@ import { message } from 'antdv-next'
 import { round } from 'es-toolkit'
 import { ref } from 'vue'
 
+import { ensureActionShortcuts, migrateLegacyActionShortcuts } from '@/features/pet-actions'
 import { useModelStore } from '@/stores/model'
 import { usePetStore } from '@/stores/pet'
 import live2d from '@/utils/live2d'
 import { isMac } from '@/utils/platform'
 
 const appWindow = getCurrentWebviewWindow()
-const digitKeys = '1234567890'.split('') as readonly string[]
-const letterKeys = 'QWERTYUIOPASDFGHJKLZXCVBNM'.split('') as readonly string[]
 
 export interface ModelSize {
   width: number
@@ -23,68 +22,32 @@ export function useModel() {
   const petStore = usePetStore()
   const modelSize = ref<ModelSize>()
 
-  function getBehaviorShortcut(index: number) {
-    const primary = isMac ? 'Command' : 'Control'
-    const modifierGroups = [
-      [primary],
-      [primary, 'Shift'],
-      [primary, 'Alt'],
-      [primary, 'Shift', 'Alt'],
-    ]
-    const tiers = [
-      ...modifierGroups.map(modifiers => ({ modifiers, keys: digitKeys })),
-      ...modifierGroups.map(modifiers => ({ modifiers, keys: letterKeys })),
-    ]
-    let nextIndex = index
-
-    for (const tier of tiers) {
-      if (nextIndex < tier.keys.length) {
-        return [...tier.modifiers, tier.keys[nextIndex]].join('+')
-      }
-
-      nextIndex -= tier.keys.length
-    }
-
-    return ''
-  }
-
-  function getMotionShortcutId(modelId: string, groupName: string, index: number) {
-    return `${modelId}:motion:${groupName}:${index}`
-  }
-
-  function getExpressionShortcutId(modelId: string, index: number) {
-    return `${modelId}:expression:${index}`
-  }
-
   async function handleLoad() {
     const currentModel = modelStore.currentModel
 
     if (!currentModel) return
 
     try {
-      const { width, height, motions, expressions } = await live2d.load(currentModel.path)
-      const nextMotions = Object.entries(motions)
+      const { width, height } = await live2d.load(currentModel.entryPath, currentModel.path)
 
       modelSize.value = { width, height }
-      modelStore.currentMotions = nextMotions
-      modelStore.currentExpressions = expressions
 
       await handleResize()
 
-      const behaviorIds = [
-        ...nextMotions.flatMap(([groupName, items]) => items.map((_, index) => {
-          return getMotionShortcutId(currentModel.id, groupName, index)
-        })),
-        ...expressions.map((_, index) => getExpressionShortcutId(currentModel.id, index)),
-      ]
-
-      for (const [index, id] of behaviorIds.entries()) {
-        if (modelStore.shortcuts[id]) continue
-
-        const shortcut = getBehaviorShortcut(index)
-
-        if (shortcut) modelStore.shortcuts[id] = shortcut
+      if (currentModel.isLegacy) {
+        migrateLegacyActionShortcuts(
+          modelStore.shortcuts,
+          currentModel.id,
+          currentModel.actions,
+        )
       }
+
+      ensureActionShortcuts(
+        modelStore.shortcuts,
+        currentModel.id,
+        currentModel.actions.map(action => action.id),
+        isMac ? 'Command' : 'Control',
+      )
     } catch (error) {
       message.error(String(error))
     }
@@ -93,8 +56,6 @@ export function useModel() {
   function handleDestroy() {
     live2d.destroy()
     modelSize.value = undefined
-    modelStore.currentMotions = []
-    modelStore.currentExpressions = []
   }
 
   async function handleResize() {

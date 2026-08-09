@@ -4,16 +4,16 @@ export interface ParameterRange {
 }
 
 export interface InputVisualizerProfile {
-  hands: {
+  hands?: {
     left: string
     right: string
   }
-  mouseButtons: Record<string, string>
-  pointerParameters: readonly string[]
-  gamepad: {
-    axes: Record<string, string>
-    thumbButtons: Record<string, string>
-    stickHands: {
+  mouseButtons?: Record<string, string>
+  pointer?: readonly string[]
+  gamepad?: {
+    axes?: Record<string, string>
+    thumbButtons?: Record<string, string>
+    stickHands?: {
       left: string
       right: string
     }
@@ -29,7 +29,7 @@ export const DEFAULT_INPUT_VISUALIZER_PROFILE: InputVisualizerProfile = {
     Left: 'ParamMouseLeftDown',
     Right: 'ParamMouseRightDown',
   },
-  pointerParameters: [
+  pointer: [
     'ParamMouseX',
     'ParamMouseY',
     'ParamAngleX',

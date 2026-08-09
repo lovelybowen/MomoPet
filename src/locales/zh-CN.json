@@ -6,9 +6,9 @@
         "switching": "切换中..."
       },
       "empty": {
-        "title": "尚未安装 Live2D 模型",
-        "description": "导入一个可再分发的模型后，桌宠会显示在这里。",
-        "action": "打开模型管理"
+        "title": "尚未安装宠物",
+        "description": "导入一个 .momopet 宠物包后，宠物会显示在这里。",
+        "action": "打开宠物管理"
       }
     },
     "preference": {
@@ -54,33 +54,26 @@
         }
       },
       "model": {
-        "title": "模型管理",
+        "title": "宠物管理",
         "labels": {
-          "deleteModel": "删除模型"
+          "deleteModel": "删除宠物"
         },
         "hints": {
           "deleteSuccess": "删除成功",
-          "deleteModel": "你确定要删除此模型吗？",
+          "deleteModel": "你确定要删除此宠物吗？",
           "importSuccess": "导入成功",
-          "clickOrDragToImport": "点击或拖动至此区域导入"
+          "clickOrDragToImport": "点击或拖动 .momopet 宠物包至此处"
         },
         "tooltips": {
-          "selectModel": "选择模型",
-          "behavior": "动作与表情"
+          "selectModel": "选择宠物",
+          "behavior": "自定义动作"
         },
         "behaviorModal": {
-          "title": "动作与表情",
-          "labels": {
-            "motion": "动作",
-            "expression": "表情",
-            "motionIndex": "动作{index}",
-            "motionGroupIndex": "动作组{index}",
-            "expressionIndex": "表情{index}"
-          }
+          "title": "自定义动作"
         },
         "empty": {
-          "title": "模型库为空",
-          "description": "从本地文件夹导入一个完整的 Live2D 模型。"
+          "title": "宠物库为空",
+          "description": "导入一个 .momopet 宠物包。"
         }
       },
       "shortcut": {
@@ -131,7 +124,7 @@
           "windowRadius": "窗口圆角",
           "opacity": "不透明度",
           "motionSound": "动作音效",
-          "behavior": "动作与表情",
+          "behavior": "自定义动作",
           "autoReleaseDelay": "按键自动释放延迟",
           "hideOnHover": "鼠标移入隐藏",
           "maxFPS": "最大帧率",
@@ -142,7 +135,7 @@
           "mouseMirror": "启用后，鼠标将镜像跟随手部移动。",
           "ignoreMouse": "启用后，模型将不再响应鼠标事件，适用于键盘模式或手柄模式。",
           "motionSound": "启用后，模型执行动作时会播放对应音效（如果存在）。",
-          "behavior": "启用后，可以配置和触发模型的动作与表情。",
+          "behavior": "启用后，可以配置和触发宠物包声明的动作。",
           "passThrough": "启用后，窗口不影响对其他应用程序的操作。",
           "alwaysOnTop": "启用后，窗口始终显示在其他应用程序上方。",
           "keepInScreen": "启用后，窗口会自动调整位置，防止超出屏幕边界。",

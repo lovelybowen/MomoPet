@@ -1,13 +1,14 @@
 mod core;
 mod features;
 mod model_repository;
+pub mod pet_package;
 
 use core::{prevent_default, setup};
 use features::input_visualizer::{
     device::{start_device_listening, stop_device_listening},
     gamepad::{start_gamepad_listening, stop_gamepad_listening},
 };
-use model_repository::{import_live2d_model, list_installed_live2d_models, remove_live2d_model};
+use model_repository::{import_pet_package, list_installed_pets, remove_installed_pet};
 use tauri::{Manager, WindowEvent, generate_handler};
 use tauri_plugin_autostart::MacosLauncher;
 use tauri_plugin_custom_window::{
@@ -29,9 +30,9 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(generate_handler![
-            import_live2d_model,
-            list_installed_live2d_models,
-            remove_live2d_model,
+            import_pet_package,
+            list_installed_pets,
+            remove_installed_pet,
             start_device_listening,
             stop_device_listening,
             start_gamepad_listening,

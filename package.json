@@ -26,6 +26,8 @@
     "check:rust": "cargo fmt --all -- --check && cargo clippy --workspace --all-targets --all-features -- -D warnings && cargo test --workspace --all-features",
     "check": "run-s check:frontend check:rust",
     "check:cubism": "node scripts/check-cubism-core.mjs",
+    "pet:pack": "cargo run --quiet --manifest-path src-tauri/Cargo.toml --bin momopet-package -- pack",
+    "pet:validate": "cargo run --quiet --manifest-path src-tauri/Cargo.toml --bin momopet-package -- validate",
     "release:preflight": "node scripts/check-cubism-core.mjs --release",
     "prepare": "simple-git-hooks"
   },

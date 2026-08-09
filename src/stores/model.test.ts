@@ -13,6 +13,31 @@ vi.mock('@tauri-apps/api/core', () => ({
 
 const invokeMock = vi.mocked(invoke)
 
+function createInstalledModel(overrides: Partial<InstalledModel> = {}): InstalledModel {
+  return {
+    id: 'com.example.pet',
+    version: '1.0.0',
+    name: 'Example Pet',
+    authors: [{ name: 'Example Author' }],
+    path: '/models/com.example.pet',
+    entryPath: '/models/com.example.pet/model.model3.json',
+    resourcePath: '/models/com.example.pet/resources',
+    mode: 'standard',
+    actions: [
+      {
+        id: 'idle',
+        name: 'Idle',
+        type: 'motion',
+        motionGroup: 'Idle',
+        motionIndex: 0,
+      },
+    ],
+    isBuiltin: false,
+    isLegacy: false,
+    ...overrides,
+  }
+}
+
 describe('desktop pet stores', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
@@ -32,16 +57,22 @@ describe('desktop pet stores', () => {
 
   it('restores the selected model by stable ID using the controlled repository result', async () => {
     const installed: InstalledModel[] = [
-      { id: 'a'.repeat(64), path: '/new/first', mode: 'standard', isBuiltin: false },
-      { id: 'b'.repeat(64), path: '/new/second', mode: 'keyboard', isBuiltin: false },
+      createInstalledModel({ id: 'com.example.first', path: '/new/first' }),
+      createInstalledModel({
+        id: 'com.example.second',
+        path: '/new/second',
+        entryPath: '/new/second/model.model3.json',
+        resourcePath: '/new/second/resources',
+        mode: 'keyboard',
+      }),
     ]
     const store = useModelStore()
-    store.currentModel = {
+    store.currentModel = createInstalledModel({
       id: installed[1].id,
       path: '/stale/path',
-      mode: 'standard',
-      isBuiltin: false,
-    }
+      entryPath: '/stale/path/model.model3.json',
+      resourcePath: '/stale/path/resources',
+    })
     invokeMock.mockResolvedValue(installed)
 
     await store.init()
