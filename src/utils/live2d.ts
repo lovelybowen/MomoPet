@@ -1,13 +1,11 @@
-import type { MotionInfo } from 'easy-live2d'
-
 import { convertFileSrc } from '@tauri-apps/api/core'
-import { readDir, readTextFile } from '@tauri-apps/plugin-fs'
+import { readTextFile } from '@tauri-apps/plugin-fs'
 import { Config, CubismSetting, Live2DSprite, Priority } from 'easy-live2d'
-import { groupBy } from 'es-toolkit/compat'
 import JSON5 from 'json5'
 import { Application, Ticker } from 'pixi.js'
 
 import type { ModelSize } from '@/composables/useModel'
+import type { PetAction } from '@/stores/model'
 
 import { i18n } from '@/locales'
 
@@ -69,30 +67,20 @@ class Live2d {
     })
   }
 
-  public async load(path: string) {
+  public async load(entryPath: string, modelDirectory: string) {
     await ensureCubismCore()
     await this.initApp()
 
     this.destroy()
 
-    const files = await readDir(path)
-
-    const modelFile = files.find(file => file.name.endsWith('.model3.json'))
-
-    if (!modelFile) {
-      throw new Error(i18n.global.t('utils.live2d.hints.notFound'))
-    }
-
-    const modelPath = join(path, modelFile.name)
-
-    const modelJSON = JSON5.parse(await readTextFile(modelPath))
+    const modelJSON = JSON5.parse(await readTextFile(entryPath))
 
     const modelSetting = new CubismSetting({
       modelJSON,
     })
 
     modelSetting.redirectPath(({ file }) => {
-      return convertFileSrc(join(path, file))
+      return convertFileSrc(join(modelDirectory, file))
     })
 
     this.model = new Live2DSprite({
@@ -106,14 +94,9 @@ class Live2d {
 
     const { width, height } = this.model
 
-    const motions = groupBy(this.model.getMotions(), 'group')
-    const expressions = this.model.getExpressions()
-
     return {
       width,
       height,
-      motions,
-      expressions,
     }
   }
 
@@ -140,15 +123,16 @@ class Live2d {
     this.model.anchor.set(0.5)
   }
 
-  public startMotion(motion: MotionInfo) {
-    return this.model?.startMotion({
-      ...motion,
-      priority: Priority.Normal,
-    })
-  }
+  public startAction(action: PetAction) {
+    if (action.type === 'motion') {
+      return this.model?.startMotion({
+        group: action.motionGroup,
+        no: action.motionIndex,
+        priority: Priority.Normal,
+      })
+    }
 
-  public setExpression(index: number) {
-    return this.model?.setExpression({ index })
+    this.model?.setExpression({ expressionId: action.expression })
   }
 
   public getParameterValueRange(id: string) {

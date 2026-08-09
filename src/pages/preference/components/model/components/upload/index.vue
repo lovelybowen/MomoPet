@@ -43,16 +43,19 @@ onMounted(async () => {
 onUnmounted(() => unlistenDragDrop?.())
 
 async function handleUpload() {
-  const selected = await open({ directory: true, multiple: true })
+  const selected = await open({
+    multiple: true,
+    filters: [{ name: 'MomoPet', extensions: ['momopet'] }],
+  })
 
   if (!selected) return
   selectedPaths.value = selected
 }
 
 watch(selectedPaths, async (paths) => {
-  for (const sourceDir of paths) {
+  for (const sourcePath of paths) {
     try {
-      const installed = await invoke<InstalledModel>(INVOKE_KEY.IMPORT_MODEL, { sourceDir })
+      const installed = await invoke<InstalledModel>(INVOKE_KEY.IMPORT_PET, { sourcePath })
       const existingIndex = modelStore.models.findIndex(model => model.id === installed.id)
 
       if (existingIndex >= 0) {
@@ -80,7 +83,7 @@ watch(selectedPaths, async (paths) => {
     type="button"
     @click="handleUpload"
   >
-    <span class="i-lucide:folder-up size-8" />
+    <span class="i-lucide:package-up size-8" />
     <span>{{ $t('pages.preference.model.hints.clickOrDragToImport') }}</span>
   </button>
 </template>

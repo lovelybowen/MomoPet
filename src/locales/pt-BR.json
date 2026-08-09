@@ -6,9 +6,9 @@
         "switching": "Alternando..."
       },
       "empty": {
-        "title": "Nenhum modelo Live2D instalado",
-        "description": "Importe um modelo redistribuível para exibir seu pet aqui.",
-        "action": "Abrir gerenciador de modelos"
+        "title": "Nenhum pet instalado",
+        "description": "Importe um pacote .momopet para exibir seu pet aqui.",
+        "action": "Abrir biblioteca de pets"
       }
     },
     "preference": {
@@ -54,33 +54,26 @@
         }
       },
       "model": {
-        "title": "Modelo",
+        "title": "Biblioteca de pets",
         "labels": {
-          "deleteModel": "Excluir modelo"
+          "deleteModel": "Excluir pet"
         },
         "hints": {
           "deleteSuccess": "Excluído com sucesso",
-          "deleteModel": "Tem certeza de que deseja excluir este modelo?",
+          "deleteModel": "Tem certeza de que deseja excluir este pet?",
           "importSuccess": "Importação bem-sucedida",
-          "clickOrDragToImport": "Clique ou arraste para importar"
+          "clickOrDragToImport": "Clique ou arraste um pacote .momopet aqui"
         },
         "tooltips": {
-          "selectModel": "Selecionar modelo",
-          "behavior": "Movimentos e expressões"
+          "selectModel": "Selecionar pet",
+          "behavior": "Ações personalizadas"
         },
         "behaviorModal": {
-          "title": "Movimentos e Expressões",
-          "labels": {
-            "motion": "Movimento",
-            "expression": "Expressão",
-            "motionIndex": "Movimento {index}",
-            "motionGroupIndex": "Grupo de Movimento {index}",
-            "expressionIndex": "Expressão {index}"
-          }
+          "title": "Ações personalizadas"
         },
         "empty": {
-          "title": "A biblioteca de modelos está vazia",
-          "description": "Importe um modelo Live2D completo de uma pasta local."
+          "title": "A biblioteca de pets está vazia",
+          "description": "Importe um pacote de pet .momopet."
         }
       },
       "shortcut": {
@@ -131,7 +124,7 @@
           "windowRadius": "Raio da Janela",
           "opacity": "Opacidade",
           "motionSound": "Som de Ação",
-          "behavior": "Movimentos e Expressões",
+          "behavior": "Ações personalizadas",
           "autoReleaseDelay": "Atraso de Liberação Automática",
           "hideOnHover": "Ocultar ao Passar o Mouse",
           "maxFPS": "Taxa Máxima de Quadros",
@@ -142,7 +135,7 @@
           "mouseMirror": "Quando ativado, o mouse espelhará o movimento da mão.",
           "ignoreMouse": "Quando ativado, o modelo não responderá a eventos do mouse. Útil para o modo teclado ou modo controle.",
           "motionSound": "Quando ativado, o modelo reproduzirá efeitos sonoros correspondentes ao executar ações (se existirem).",
-          "behavior": "Quando ativado, movimentos e expressões podem ser configurados e acionados.",
+          "behavior": "Quando ativado, as ações declaradas pelo pacote de pet podem ser configuradas e acionadas.",
           "passThrough": "Quando ativado, a janela não afetará operações em outros aplicativos.",
           "alwaysOnTop": "Quando ativado, a janela sempre ficará acima de outros aplicativos.",
           "keepInScreen": "Quando ativado, a janela permanece automaticamente dentro dos limites da tela.",

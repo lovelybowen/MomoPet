@@ -9,7 +9,6 @@ import type { InstalledModel } from '@/stores/model'
 import { INVOKE_KEY } from '@/constants'
 import { useModelStore } from '@/stores/model'
 import { usePetStore } from '@/stores/pet'
-import { join } from '@/utils/path'
 
 import BehaviorModal from './components/behavior-modal/index.vue'
 import Upload from './components/upload/index.vue'
@@ -42,7 +41,7 @@ async function handleDelete(model: InstalledModel) {
   }
 
   try {
-    await invoke(INVOKE_KEY.REMOVE_MODEL, { modelId: model.id })
+    await invoke(INVOKE_KEY.REMOVE_PET, { petId: model.id })
     modelStore.models = nextModels
     message.success(t('pages.preference.model.hints.deleteSuccess'))
   } catch (error) {
@@ -71,11 +70,24 @@ async function handleDelete(model: InstalledModel) {
         size="small"
         @click="handleToggle(model)"
       >
+        <template #title>
+          <div class="truncate">
+            {{ model.name }}
+          </div>
+        </template>
+
+        <template #extra>
+          <span
+            class="max-w-28 truncate text-3 text-[#61706d]"
+            :title="model.version"
+          >v{{ model.version }}</span>
+        </template>
+
         <template #cover>
           <img
             alt=""
             class="aspect-ratio-[4/3] object-cover"
-            :src="convertFileSrc(join(model.path, 'resources', 'cover.png'))"
+            :src="model.coverPath ? convertFileSrc(model.coverPath) : '/momopet-app-icon.png'"
             @error="handleCoverError"
           >
         </template>

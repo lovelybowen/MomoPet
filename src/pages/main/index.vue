@@ -1,11 +1,8 @@
 <script setup lang="ts">
-import type { MotionInfo } from 'easy-live2d'
-
 import { convertFileSrc } from '@tauri-apps/api/core'
 import { PhysicalSize } from '@tauri-apps/api/dpi'
 import { Menu, PredefinedMenuItem } from '@tauri-apps/api/menu'
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow'
-import { exists } from '@tauri-apps/plugin-fs'
 import { useDebounceFn, useEventListener } from '@vueuse/core'
 import { round } from 'es-toolkit'
 import { onUnmounted, ref, watch } from 'vue'
@@ -20,7 +17,6 @@ import { useGeneralStore } from '@/stores/general'
 import { useModelStore } from '@/stores/model'
 import { usePetStore } from '@/stores/pet'
 import live2d from '@/utils/live2d'
-import { join } from '@/utils/path'
 import { isWindows } from '@/utils/platform'
 
 const appWindow = getCurrentWebviewWindow()
@@ -61,9 +57,8 @@ watch(() => modelStore.currentModel, async (model) => {
   try {
     await handleLoad()
 
-    const backgroundPath = join(model.path, 'resources', 'background.png')
-    backgroundImagePath.value = await exists(backgroundPath)
-      ? convertFileSrc(backgroundPath)
+    backgroundImagePath.value = model.backgroundPath
+      ? convertFileSrc(model.backgroundPath)
       : undefined
   } finally {
     modelStore.modelReady = true
@@ -86,12 +81,10 @@ watch(() => generalStore.app.taskbarVisible, setTaskbarVisibility, { immediate: 
 watch(() => petStore.model.motionSound, live2d.setMotionSoundEnabled, { immediate: true })
 watch(() => petStore.model.maxFPS, live2d.setMaxFPS, { immediate: true })
 
-useTauriListen<MotionInfo>(LISTEN_KEY.START_MOTION, ({ payload }) => {
-  live2d.startMotion(payload)
-})
+useTauriListen<string>(LISTEN_KEY.START_ACTION, ({ payload: actionId }) => {
+  const action = modelStore.currentModel?.actions.find(action => action.id === actionId)
 
-useTauriListen<number>(LISTEN_KEY.SET_EXPRESSION, ({ payload }) => {
-  live2d.setExpression(payload)
+  if (action) live2d.startAction(action)
 })
 
 function handleMouseDown(event: MouseEvent) {
@@ -196,7 +189,7 @@ function openModelManager() {
         type="button"
         @click="openModelManager"
       >
-        <span class="i-lucide:folder-open size-4" />
+        <span class="i-lucide:package-open size-4" />
         {{ $t('pages.main.empty.action') }}
       </button>
     </div>

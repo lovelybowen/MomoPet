@@ -16,14 +16,12 @@ import { INVOKE_KEY, LISTEN_KEY, WINDOW_LABEL } from '@/constants'
 import { useAppStore } from '@/stores/app'
 import { useModelStore } from '@/stores/model'
 import { usePetStore } from '@/stores/pet'
-import { inBetween, isImage } from '@/utils/is'
+import { inBetween } from '@/utils/is'
 import live2d from '@/utils/live2d'
 import { getCursorMonitor } from '@/utils/monitor'
 import { join } from '@/utils/path'
 import { isMac, isWindows } from '@/utils/platform'
 import { clearObject } from '@/utils/shared'
-
-import type { InputVisualizerProfile } from './profile'
 
 import {
   DEFAULT_INPUT_VISUALIZER_PROFILE,
@@ -72,14 +70,26 @@ interface StickState {
 const DAMPING_DECAY = 0.75
 const appWindow = getCurrentWebviewWindow()
 
-export function useInputVisualizer(
-  profile: InputVisualizerProfile = DEFAULT_INPUT_VISUALIZER_PROFILE,
-) {
+export function useInputVisualizer() {
   const appStore = useAppStore()
   const modelStore = useModelStore()
   const petStore = usePetStore()
-  const enabled = computed(() => {
-    return petStore.model.inputVisualizer && Boolean(modelStore.currentModel)
+  const profile = computed(() => {
+    if (modelStore.currentModel?.input) return modelStore.currentModel.input.parameters
+    if (modelStore.currentModel?.isLegacy) return DEFAULT_INPUT_VISUALIZER_PROFILE
+  })
+  const inputEnabled = computed(() => {
+    return petStore.model.inputVisualizer && Boolean(profile.value)
+  })
+  const hideOnHoverEnabled = computed(() => {
+    return petStore.window.hideOnHover && Boolean(modelStore.currentModel)
+  })
+  const deviceListeningEnabled = computed(() => {
+    return inputEnabled.value || hideOnHoverEnabled.value
+  })
+  const cursorTrackingEnabled = computed(() => {
+    return hideOnHoverEnabled.value
+      || (inputEnabled.value && !petStore.model.ignoreMouse)
   })
   const releaseTimers = new Map<string, ReturnType<typeof setTimeout>>()
   const latestCursorPoint = ref<CursorPoint>()
@@ -147,7 +157,7 @@ export function useInputVisualizer(
     const xRatio = (cursorPoint.x - monitor.position.x) / monitor.size.width
     const yRatio = (cursorPoint.y - monitor.position.y) / monitor.size.height
 
-    for (const parameterId of profile.pointerParameters) {
+    for (const parameterId of profile.value?.pointer ?? []) {
       const range = live2d.getParameterValueRange(parameterId)
 
       if (!range || isNil(range.min) || isNil(range.max)) continue
@@ -164,42 +174,50 @@ export function useInputVisualizer(
     }
   }
 
-  const onHideOnHover = (() => {
-    let timer: ReturnType<typeof setTimeout> | undefined
-    let wasInWindow = false
+  let hideOnHoverTimer: ReturnType<typeof setTimeout> | undefined
+  let wasInWindow = false
 
-    return (x: number, y: number) => {
-      const { x: winX, y: winY, width, height } = appStore.windowState[WINDOW_LABEL.MAIN] ?? {}
+  const resetHideOnHover = () => {
+    if (hideOnHoverTimer) clearTimeout(hideOnHoverTimer)
+    hideOnHoverTimer = undefined
+    wasInWindow = false
+    document.body.style.removeProperty('opacity')
+    void appWindow.setIgnoreCursorEvents(petStore.window.passThrough)
+  }
 
-      if (isNil(winX) || isNil(winY) || isNil(width) || isNil(height)) return
+  const onHideOnHover = (x: number, y: number) => {
+    const { x: winX, y: winY, width, height } = appStore.windowState[WINDOW_LABEL.MAIN] ?? {}
 
-      const isInWindow = inBetween(x, winX, winX + width)
-        && inBetween(y, winY, winY + height)
+    if (isNil(winX) || isNil(winY) || isNil(width) || isNil(height)) return
 
-      if (isInWindow === wasInWindow) return
-      if (timer) clearTimeout(timer)
+    const isInWindow = inBetween(x, winX, winX + width)
+      && inBetween(y, winY, winY + height)
 
-      if (isInWindow) {
-        timer = setTimeout(() => {
-          document.body.style.setProperty('opacity', '0')
-          appWindow.setIgnoreCursorEvents(true)
-        }, petStore.window.hideOnHoverDelay * 1000)
-      } else {
-        document.body.style.removeProperty('opacity')
-        appWindow.setIgnoreCursorEvents(petStore.window.passThrough)
-      }
+    if (isInWindow === wasInWindow) return
+    if (hideOnHoverTimer) clearTimeout(hideOnHoverTimer)
 
-      wasInWindow = isInWindow
+    if (isInWindow) {
+      hideOnHoverTimer = setTimeout(() => {
+        document.body.style.setProperty('opacity', '0')
+        void appWindow.setIgnoreCursorEvents(true)
+      }, petStore.window.hideOnHoverDelay * 1000)
+    } else {
+      document.body.style.removeProperty('opacity')
+      void appWindow.setIgnoreCursorEvents(petStore.window.passThrough)
     }
-  })()
+
+    wasInWindow = isInWindow
+  }
 
   const handleCursorMove = async (cursorPoint: CursorPoint) => {
     const x = cursorPoint.x * scaleFactor.value
     const y = cursorPoint.y * scaleFactor.value
 
-    await updatePointerParameters(new TauriPhysicalPosition(x, y))
+    if (inputEnabled.value) {
+      await updatePointerParameters(new TauriPhysicalPosition(x, y))
+    }
 
-    if (petStore.window.hideOnHover) onHideOnHover(x, y)
+    if (hideOnHoverEnabled.value) onHideOnHover(x, y)
   }
 
   const tickerCallback = (ticker: Ticker) => {
@@ -225,39 +243,37 @@ export function useInputVisualizer(
   }
 
   watch(
-    [enabled, () => modelStore.currentModel?.mode],
-    async ([isEnabled, mode]) => {
-      if (isEnabled) {
+    [deviceListeningEnabled, inputEnabled, () => modelStore.currentModel?.mode],
+    async ([isListeningEnabled, isInputEnabled, mode]) => {
+      if (isListeningEnabled) {
         void invoke(INVOKE_KEY.START_DEVICE_LISTENING)
       } else {
         await invoke(INVOKE_KEY.STOP_DEVICE_LISTENING)
       }
 
-      if (isEnabled && mode === 'gamepad') {
+      if (isInputEnabled && mode === 'gamepad') {
         void invoke(INVOKE_KEY.START_GAMEPAD_LISTENING)
       } else {
         await invoke(INVOKE_KEY.STOP_GAMEPAD_LISTENING)
       }
 
-      if (!isEnabled) clearObject([modelStore.supportKeys, modelStore.pressedKeys])
+      if (!isInputEnabled) clearObject([modelStore.supportKeys, modelStore.pressedKeys])
     },
     { immediate: true },
   )
 
   watch(
-    [() => modelStore.currentModel, enabled],
+    [() => modelStore.currentModel, inputEnabled],
     async ([model, isEnabled]) => {
       clearObject([modelStore.supportKeys, modelStore.pressedKeys])
 
       if (!model || !isEnabled) return
 
-      const resourcePath = join(model.path, 'resources')
-
       for (const groupName of ['left-keys', 'right-keys']) {
-        const groupDirectory = join(resourcePath, groupName)
+        const groupDirectory = join(model.resourcePath, groupName)
         const files = await readDir(groupDirectory).catch(() => [])
 
-        for (const file of files.filter(file => isImage(file.name))) {
+        for (const file of files.filter(file => file.name.toLowerCase().endsWith('.png'))) {
           modelStore.supportKeys[file.name.split('.')[0]] = join(groupDirectory, file.name)
         }
       }
@@ -266,28 +282,46 @@ export function useInputVisualizer(
   )
 
   watch([modelStore.pressedKeys, stickActive], ([keys, active]) => {
-    if (!enabled.value) return
+    const currentProfile = profile.value
+
+    if (!inputEnabled.value || !currentProfile) return
 
     const directories = Object.values(keys).map(path => nth(path.split(sep()), -2) ?? '')
     const leftPressed = directories.some(directory => directory.startsWith('left'))
     const rightPressed = directories.some(directory => directory.startsWith('right'))
 
-    live2d.setParameterValue(profile.hands.left, active.left || leftPressed)
-    live2d.setParameterValue(profile.hands.right, active.right || rightPressed)
-    live2d.setParameterValue(profile.gamepad.stickHands.left, active.left)
-    live2d.setParameterValue(profile.gamepad.stickHands.right, active.right)
+    if (currentProfile.hands) {
+      live2d.setParameterValue(currentProfile.hands.left, active.left || leftPressed)
+      live2d.setParameterValue(currentProfile.hands.right, active.right || rightPressed)
+    }
+
+    if (currentProfile.gamepad?.stickHands) {
+      live2d.setParameterValue(currentProfile.gamepad.stickHands.left, active.left)
+      live2d.setParameterValue(currentProfile.gamepad.stickHands.right, active.right)
+    }
   }, { deep: true })
 
-  watch([enabled, () => petStore.model.ignoreMouse], ([isEnabled, ignoreMouse]) => {
+  watch(cursorTrackingEnabled, (isEnabled) => {
     Ticker.shared.remove(tickerCallback)
 
-    if (isEnabled && !ignoreMouse) Ticker.shared.add(tickerCallback)
+    if (isEnabled) Ticker.shared.add(tickerCallback)
+  }, { immediate: true })
+
+  watch(hideOnHoverEnabled, (isEnabled) => {
+    if (!isEnabled) resetHideOnHover()
   }, { immediate: true })
 
   useTauriListen<DeviceEvent>(LISTEN_KEY.DEVICE_CHANGED, ({ payload }) => {
-    if (!enabled.value) return
+    if (!deviceListeningEnabled.value) return
 
     const { kind, value } = payload
+
+    if (kind === 'MouseMove') {
+      if (cursorTrackingEnabled.value) latestCursorPoint.value = value
+      return
+    }
+
+    if (!inputEnabled.value) return
 
     if (kind === 'KeyboardPress' || kind === 'KeyboardRelease') {
       const key = getSupportedKey(value)
@@ -303,20 +337,15 @@ export function useInputVisualizer(
       return handleRelease(key)
     }
 
-    if (kind === 'MouseMove') {
-      latestCursorPoint.value = value
-      return
-    }
-
-    const parameterId = profile.mouseButtons[value]
+    const parameterId = profile.value?.mouseButtons?.[value]
     if (parameterId) live2d.setParameterValue(parameterId, kind === 'MousePress')
   })
 
   useTauriListen<GamepadEvent>(LISTEN_KEY.GAMEPAD_CHANGED, ({ payload }) => {
-    if (!enabled.value) return
+    if (!inputEnabled.value) return
 
     const { name, value } = payload
-    const axisParameter = profile.gamepad.axes[name]
+    const axisParameter = profile.value?.gamepad?.axes?.[name]
 
     if (axisParameter) {
       const side = name.startsWith('Left') ? sticks.left : sticks.right
@@ -333,7 +362,7 @@ export function useInputVisualizer(
       return
     }
 
-    const thumbParameter = profile.gamepad.thumbButtons[name]
+    const thumbParameter = profile.value?.gamepad?.thumbButtons?.[name]
     if (thumbParameter) {
       const side = name.startsWith('Left') ? sticks.left : sticks.right
       side.pressed = value !== 0
@@ -357,5 +386,6 @@ export function useInputVisualizer(
     void invoke(INVOKE_KEY.STOP_DEVICE_LISTENING)
     void invoke(INVOKE_KEY.STOP_GAMEPAD_LISTENING)
     releaseTimers.forEach(timer => clearTimeout(timer))
+    resetHideOnHover()
   })
 }

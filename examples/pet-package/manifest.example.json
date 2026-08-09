@@ -1,0 +1,64 @@
+{
+  "protocolVersion": 1,
+  "id": "com.example.momo",
+  "version": "1.0.0",
+  "name": "Momo",
+  "description": "MomoPet V1 作者示例 manifest；需要配合作者自己的 Live2D 运行时文件使用。",
+  "authors": [
+    {
+      "name": "Example Author",
+      "url": "https://example.com"
+    }
+  ],
+  "license": {
+    "name": "Example redistribution license",
+    "file": "LICENSE.txt"
+  },
+  "runtime": {
+    "type": "live2d-cubism",
+    "profileVersion": 1,
+    "entry": "model/pet.model3.json"
+  },
+  "presentation": {
+    "cover": "resources/cover.png",
+    "background": "resources/background.png"
+  },
+  "actions": [
+    {
+      "id": "idle",
+      "name": "待机",
+      "type": "motion",
+      "motionGroup": "Idle",
+      "motionIndex": 0
+    },
+    {
+      "id": "wave",
+      "name": "挥手",
+      "type": "motion",
+      "motionGroup": "Wave",
+      "motionIndex": 0
+    },
+    {
+      "id": "smile",
+      "name": "微笑",
+      "type": "expression",
+      "expression": "smile"
+    }
+  ],
+  "input": {
+    "mode": "standard",
+    "parameters": {
+      "mouseButtons": {
+        "Left": "ParamMouseLeftDown",
+        "Right": "ParamMouseRightDown"
+      },
+      "pointer": [
+        "ParamAngleX",
+        "ParamAngleY",
+        "ParamEyeBallX",
+        "ParamEyeBallY"
+      ]
+    }
+  },
+  "extensions": {}
+}
