@@ -14,8 +14,6 @@ dist-ssr
 target
 .vscode
 
-# Live2D Cubism Core is proprietary and must be installed from the official SDK.
-public/vendor/live2d/live2dcubismcore.min.js
 
 # Editor directories and files
 .idea

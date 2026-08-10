@@ -103,7 +103,7 @@
         "hints": {
           "appInfo": "复制软件信息并提供给 Bug Issue。",
           "copySuccess": "复制成功",
-          "license": "MomoPet 代码使用 MIT License；Cubism Core 与模型素材受各自许可约束。"
+          "license": "MomoPet 代码使用 MIT License；宠物素材受各自许可约束。"
         },
         "buttons": {
           "copy": "复制"
@@ -114,8 +114,6 @@
         "labels": {
           "modelSettings": "模型设置",
           "mirrorMode": "镜像模式",
-          "mouseMirror": "鼠标镜像",
-          "ignoreMouse": "忽略鼠标事件",
           "windowSettings": "窗口设置",
           "passThrough": "窗口穿透",
           "alwaysOnTop": "窗口置顶",
@@ -123,27 +121,19 @@
           "windowSize": "窗口尺寸",
           "windowRadius": "窗口圆角",
           "opacity": "不透明度",
-          "motionSound": "动作音效",
           "behavior": "自定义动作",
-          "autoReleaseDelay": "按键自动释放延迟",
           "hideOnHover": "鼠标移入隐藏",
-          "maxFPS": "最大帧率",
-          "inputVisualizer": "示例输入映射"
+          "maxFPS": "最大帧率"
         },
         "hints": {
           "mirrorMode": "启用后，模型将水平镜像翻转。",
-          "mouseMirror": "启用后，鼠标将镜像跟随手部移动。",
-          "ignoreMouse": "启用后，模型将不再响应鼠标事件，适用于键盘模式或手柄模式。",
-          "motionSound": "启用后，模型执行动作时会播放对应音效（如果存在）。",
           "behavior": "启用后，可以配置和触发宠物包声明的动作。",
           "passThrough": "启用后，窗口不影响对其他应用程序的操作。",
           "alwaysOnTop": "启用后，窗口始终显示在其他应用程序上方。",
           "keepInScreen": "启用后，窗口会自动调整位置，防止超出屏幕边界。",
           "windowSize": "将鼠标移至窗口边缘，或按住 Shift 并右键拖动，也可以调整窗口大小。",
-          "autoReleaseDelay": "由于 Windows 下部分系统级按键无法捕获释放事件，超时后将自动视为已释放。",
           "hideOnHover": "启用后，鼠标悬停窗口时自动隐藏。可设置延迟时间，0 表示立即隐藏。",
-          "maxFPS": "限制模型渲染的最大帧率，降低帧率可以减少 CPU/GPU 占用。",
-          "inputVisualizer": "使用键盘、鼠标和手柄驱动模型参数。可随时关闭或替换此示例模块。"
+          "maxFPS": "限制模型渲染的最大帧率，降低帧率可以减少 CPU/GPU 占用。"
         }
       }
     }
@@ -167,14 +157,6 @@
         "quitApp": "退出应用",
         "hidePet": "隐藏桌宠",
         "showPet": "显示桌宠"
-      }
-    }
-  },
-  "utils": {
-    "live2d": {
-      "hints": {
-        "notFound": "未找到模型主配置文件，请确认模型文件是否完整。",
-        "coreMissing": "未安装 Live2D Cubism Core。请先按项目文档完成本地安装。"
       }
     }
   }

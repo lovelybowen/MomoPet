@@ -1,5 +1,5 @@
 {
-  "identifier": "com.4096bytes.momopet.live2d",
+  "identifier": "com.bytes4096.momopet",
   "bundle": {
     "windows": {
       "digestAlgorithm": "sha256",

@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "private": true,
   "packageManager": "pnpm@9.12.3",
-  "description": "Cross-platform Live2D desktop pet foundation",
+  "description": "Cross-platform Sprite2D desktop pet",
   "author": "bowen",
   "license": "MIT",
   "engines": {
@@ -25,10 +25,11 @@
     "check:frontend": "run-s check:scaffold lint typecheck test build",
     "check:rust": "cargo fmt --all -- --check && cargo clippy --workspace --all-targets --all-features -- -D warnings && cargo test --workspace --all-features",
     "check": "run-s check:frontend check:rust",
-    "check:cubism": "node scripts/check-cubism-core.mjs",
     "pet:pack": "cargo run --quiet --manifest-path src-tauri/Cargo.toml --bin momopet-package -- pack",
     "pet:validate": "cargo run --quiet --manifest-path src-tauri/Cargo.toml --bin momopet-package -- validate",
-    "release:preflight": "node scripts/check-cubism-core.mjs --release",
+    "pet:validate-dir": "cargo run --quiet --manifest-path src-tauri/Cargo.toml --bin momopet-package -- validate-dir",
+    "pet:spritesheet": "cargo run --quiet --manifest-path src-tauri/Cargo.toml --bin momopet-package -- spritesheet",
+    "release:preflight": "pnpm pet:validate-dir -- src-tauri/assets/models/com.4096bytes.momopet.momo",
     "prepare": "simple-git-hooks"
   },
   "dependencies": {
@@ -46,9 +47,7 @@
     "@tauri-store/pinia": "^3.7.1",
     "@vueuse/core": "^13.9.0",
     "antdv-next": "^1.2.2",
-    "easy-live2d": "^0.4.4",
     "es-toolkit": "^1.45.1",
-    "json5": "^2.2.3",
     "pinia": "^3.0.4",
     "pixi.js": "^8.18.1",
     "tauri-plugin-locale-api": "^2.0.1",

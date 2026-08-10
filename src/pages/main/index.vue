@@ -5,19 +5,18 @@ import { Menu, PredefinedMenuItem } from '@tauri-apps/api/menu'
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow'
 import { useDebounceFn, useEventListener } from '@vueuse/core'
 import { round } from 'es-toolkit'
-import { onUnmounted, ref, watch } from 'vue'
+import { nextTick, onUnmounted, ref, watch } from 'vue'
 
 import { useAppMenu } from '@/composables/useAppMenu'
 import { useModel } from '@/composables/useModel'
 import { useTauriListen } from '@/composables/useTauriListen'
 import { LISTEN_KEY, WINDOW_LABEL } from '@/constants'
-import { useInputVisualizer } from '@/features/input-visualizer/useInputVisualizer'
 import { hideWindow, setAlwaysOnTop, setTaskbarVisibility, showWindow } from '@/plugins/window'
 import { useGeneralStore } from '@/stores/general'
 import { useModelStore } from '@/stores/model'
 import { usePetStore } from '@/stores/pet'
-import live2d from '@/utils/live2d'
 import { isWindows } from '@/utils/platform'
+import sprite2d from '@/utils/sprite2d'
 
 const appWindow = getCurrentWebviewWindow()
 const { modelSize, handleLoad, handleDestroy, handleResize } = useModel()
@@ -27,8 +26,8 @@ const modelStore = useModelStore()
 const generalStore = useGeneralStore()
 const resizing = ref(false)
 const backgroundImagePath = ref<string>()
+const pointerStart = ref<{ x: number, y: number }>()
 
-useInputVisualizer()
 onUnmounted(handleDestroy)
 
 const debouncedResize = useDebounceFn(async () => {
@@ -55,6 +54,7 @@ watch(() => modelStore.currentModel, async (model) => {
   modelStore.modelReady = false
 
   try {
+    await nextTick()
     await handleLoad()
 
     backgroundImagePath.value = model.backgroundPath
@@ -78,18 +78,18 @@ watch(() => petStore.window.visible, value => value ? showWindow() : hideWindow(
 watch(() => petStore.window.passThrough, value => appWindow.setIgnoreCursorEvents(value), { immediate: true })
 watch(() => petStore.window.alwaysOnTop, setAlwaysOnTop, { immediate: true })
 watch(() => generalStore.app.taskbarVisible, setTaskbarVisibility, { immediate: true })
-watch(() => petStore.model.motionSound, live2d.setMotionSoundEnabled, { immediate: true })
-watch(() => petStore.model.maxFPS, live2d.setMaxFPS, { immediate: true })
+watch(() => petStore.model.maxFPS, sprite2d.setMaxFPS, { immediate: true })
 
 useTauriListen<string>(LISTEN_KEY.START_ACTION, ({ payload: actionId }) => {
   const action = modelStore.currentModel?.actions.find(action => action.id === actionId)
 
-  if (action) live2d.startAction(action)
+  if (action) sprite2d.startAction(action)
 })
 
 function handleMouseDown(event: MouseEvent) {
-  if ((event.target as HTMLElement).closest('button')) return
-  appWindow.startDragging()
+  if (event.button !== 0 || (event.target as HTMLElement).closest('button')) return
+
+  pointerStart.value = { x: event.clientX, y: event.clientY }
 }
 
 async function handleContextmenu(event: MouseEvent) {
@@ -113,10 +113,31 @@ async function handleContextmenu(event: MouseEvent) {
 function handleMouseMove(event: MouseEvent) {
   const { buttons, shiftKey, movementX, movementY } = event
 
+  sprite2d.setPointer(event.clientX / Math.max(1, innerWidth))
+
+  if (buttons === 1 && pointerStart.value) {
+    const distance = Math.hypot(
+      event.clientX - pointerStart.value.x,
+      event.clientY - pointerStart.value.y,
+    )
+
+    if (distance >= 4) {
+      pointerStart.value = undefined
+      appWindow.startDragging()
+    }
+  }
+
   if (buttons !== 2 || !shiftKey) return
 
   const delta = (movementX + movementY) * 0.5
   petStore.window.scale = round(Math.max(10, Math.min(petStore.window.scale + delta, 500)))
+}
+
+function handleMouseUp(event: MouseEvent) {
+  if (event.button !== 0 || !pointerStart.value) return
+
+  pointerStart.value = undefined
+  if (modelStore.currentModel) sprite2d.tap()
 }
 
 function openModelManager() {
@@ -135,26 +156,20 @@ function openModelManager() {
     @contextmenu="handleContextmenu"
     @mousedown="handleMouseDown"
     @mousemove="handleMouseMove"
+    @mouseup="handleMouseUp"
   >
+    <img
+      v-if="modelStore.currentModel && backgroundImagePath"
+      class="absolute size-full object-cover"
+      :src="backgroundImagePath"
+    >
+
+    <canvas
+      id="petCanvas"
+      class="absolute size-full"
+    />
+
     <template v-if="modelStore.currentModel">
-      <img
-        v-if="backgroundImagePath"
-        class="absolute size-full object-cover"
-        :src="backgroundImagePath"
-      >
-
-      <canvas
-        id="live2dCanvas"
-        class="absolute size-full"
-      />
-
-      <img
-        v-for="path in modelStore.pressedKeys"
-        :key="path"
-        class="absolute size-full object-cover"
-        :src="convertFileSrc(path)"
-      >
-
       <div
         v-show="resizing || !modelStore.modelReady"
         class="absolute inset-0 flex items-center justify-center bg-black/85"

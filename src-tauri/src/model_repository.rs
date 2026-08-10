@@ -1,21 +1,23 @@
 use crate::pet_package::{
-    INTERNAL_METADATA_FILE, ModelMode, PetAction, PetAuthor, PetInput, PetLicense, PetManifest,
+    INTERNAL_METADATA_FILE, PetAction, PetAuthor, PetLicense, PetManifest, PetRuntimeType,
     extract_and_validate, validate_installed_directory, validate_package_id,
 };
 use semver::Version;
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 use std::{
     collections::HashSet,
     fs,
-    path::{Component, Path, PathBuf},
+    path::Path,
     time::{SystemTime, UNIX_EPOCH},
 };
 use tauri::{AppHandle, Manager, Runtime, command};
 
-const INSTALL_DIRECTORY: &str = "custom-models";
+const INSTALL_DIRECTORY: &str = "pets";
+const LEGACY_INSTALL_DIRECTORY: &str = "custom-models";
+const APP_IDENTIFIER: &str = "com.bytes4096.momopet";
+const LEGACY_APP_IDENTIFIER: &str = "com.4096bytes.momopet.live2d";
 const BUILTIN_DIRECTORY: &str = "assets/models";
-const METADATA_FORMAT_VERSION: u32 = 1;
+const METADATA_FORMAT_VERSION: u32 = 2;
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -26,16 +28,13 @@ pub struct InstalledModel {
     pub description: Option<String>,
     pub authors: Vec<PetAuthor>,
     pub license: Option<PetLicense>,
+    pub runtime_type: PetRuntimeType,
     pub path: String,
     pub entry_path: String,
-    pub resource_path: String,
     pub cover_path: Option<String>,
     pub background_path: Option<String>,
-    pub mode: ModelMode,
-    pub input: Option<PetInput>,
     pub actions: Vec<PetAction>,
     pub is_builtin: bool,
-    pub is_legacy: bool,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -44,20 +43,6 @@ struct InstalledPackageMetadata {
     format_version: u32,
     content_digest: String,
     manifest: PetManifest,
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
-struct LegacyInstalledModelMetadata {
-    id: String,
-    model_directory: String,
-    mode: ModelMode,
-    is_builtin: bool,
-}
-
-enum InstalledMetadata {
-    Package(Box<InstalledPackageMetadata>),
-    Legacy(LegacyInstalledModelMetadata),
 }
 
 #[command]
@@ -114,6 +99,7 @@ fn import_package(
     app_data_dir: &Path,
     builtin_models_dir: &Path,
 ) -> Result<InstalledModel, ModelError> {
+    migrate_legacy_repository(app_data_dir)?;
     let models_dir = app_data_dir.join(INSTALL_DIRECTORY);
     fs::create_dir_all(&models_dir)?;
 
@@ -137,18 +123,13 @@ fn import_package(
         };
 
         if destination.exists() {
-            let existing_metadata = read_metadata(&destination)?;
-            let InstalledMetadata::Package(existing) = existing_metadata else {
-                return Err(ModelError::new(format!(
-                    "package ID conflicts with a legacy installed model: {id}"
-                )));
-            };
+            let existing_metadata = read_package_metadata(&destination)?;
 
-            let existing_version = Version::parse(&existing.manifest.version)?;
+            let existing_version = Version::parse(&existing_metadata.manifest.version)?;
             let incoming_version = Version::parse(&metadata.manifest.version)?;
 
             if incoming_version == existing_version {
-                if metadata.content_digest == existing.content_digest {
+                if metadata.content_digest == existing_metadata.content_digest {
                     return read_installed_model(&destination, &id);
                 }
                 return Err(ModelError::new(format!(
@@ -213,6 +194,7 @@ fn list_models(
     app_data_dir: &Path,
     builtin_models_dir: &Path,
 ) -> Result<Vec<InstalledModel>, ModelError> {
+    migrate_legacy_repository(app_data_dir)?;
     let mut models = list_builtin_models(builtin_models_dir)?;
     let builtin_ids = models
         .iter()
@@ -298,6 +280,7 @@ fn list_custom_models(app_data_dir: &Path) -> Result<Vec<InstalledModel>, ModelE
 }
 
 fn remove_model(model_id: &str, app_data_dir: &Path) -> Result<(), ModelError> {
+    migrate_legacy_repository(app_data_dir)?;
     if !is_repository_id(model_id) {
         return Err(ModelError::new("invalid installed pet ID"));
     }
@@ -312,6 +295,52 @@ fn remove_model(model_id: &str, app_data_dir: &Path) -> Result<(), ModelError> {
     Ok(())
 }
 
+fn migrate_legacy_repository(app_data_dir: &Path) -> Result<(), ModelError> {
+    remove_legacy_directory(&app_data_dir.join(LEGACY_INSTALL_DIRECTORY))?;
+
+    if app_data_dir.file_name().and_then(|value| value.to_str()) == Some(APP_IDENTIFIER)
+        && let Some(app_data_parent) = app_data_dir.parent()
+    {
+        let previous_app_data = app_data_parent.join(LEGACY_APP_IDENTIFIER);
+        if previous_app_data != app_data_dir {
+            remove_previous_legacy_repository(&previous_app_data)?;
+        }
+    }
+
+    Ok(())
+}
+
+fn remove_previous_legacy_repository(previous_app_data: &Path) -> Result<(), ModelError> {
+    let metadata = match fs::symlink_metadata(previous_app_data) {
+        Ok(metadata) => metadata,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+        Err(error) => return Err(error.into()),
+    };
+    if metadata.file_type().is_symlink() || !metadata.is_dir() {
+        return Err(ModelError::new(
+            "legacy app data path is not a real directory",
+        ));
+    }
+
+    remove_legacy_directory(&previous_app_data.join(LEGACY_INSTALL_DIRECTORY))
+}
+
+fn remove_legacy_directory(legacy: &Path) -> Result<(), ModelError> {
+    let metadata = match fs::symlink_metadata(legacy) {
+        Ok(metadata) => metadata,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+        Err(error) => return Err(error.into()),
+    };
+    if metadata.file_type().is_symlink() || !metadata.is_dir() {
+        return Err(ModelError::new(
+            "legacy custom-models path is not a real directory",
+        ));
+    }
+
+    fs::remove_dir_all(legacy)?;
+    Ok(())
+}
+
 fn read_installed_model(path: &Path, expected_id: &str) -> Result<InstalledModel, ModelError> {
     let directory_metadata = fs::symlink_metadata(path)?;
     if directory_metadata.file_type().is_symlink() || !directory_metadata.is_dir() {
@@ -320,35 +349,34 @@ fn read_installed_model(path: &Path, expected_id: &str) -> Result<InstalledModel
         ));
     }
 
-    match read_metadata(path)? {
-        InstalledMetadata::Package(metadata) => {
-            if metadata.format_version != METADATA_FORMAT_VERSION {
-                return Err(ModelError::new(format!(
-                    "unsupported installed metadata version: {}",
-                    metadata.format_version
-                )));
-            }
-            if metadata.manifest.id != expected_id {
-                return Err(ModelError::new(
-                    "installed manifest ID does not match its directory",
-                ));
-            }
-
-            let validated = validate_installed_directory(path)?;
-            if validated.manifest != metadata.manifest
-                || validated.content_digest != metadata.content_digest
-            {
-                return Err(ModelError::new(
-                    "installed pet content no longer matches its metadata",
-                ));
-            }
-
-            installed_from_manifest(path, metadata.manifest, false)
-        }
-        InstalledMetadata::Legacy(metadata) => {
-            read_legacy_installed_model(path, expected_id, metadata)
-        }
+    let metadata = read_package_metadata(path)?;
+    if metadata.format_version != METADATA_FORMAT_VERSION {
+        return Err(ModelError::new(format!(
+            "unsupported installed metadata version: {}",
+            metadata.format_version
+        )));
     }
+    if metadata.manifest.id != expected_id {
+        return Err(ModelError::new(
+            "installed manifest ID does not match its directory",
+        ));
+    }
+
+    let validated = validate_installed_directory(path)?;
+    if validated.manifest != metadata.manifest
+        || validated.content_digest != metadata.content_digest
+    {
+        return Err(ModelError::new(
+            "installed pet content no longer matches its metadata",
+        ));
+    }
+
+    installed_from_manifest(path, metadata.manifest, false)
+}
+
+fn read_package_metadata(path: &Path) -> Result<InstalledPackageMetadata, ModelError> {
+    let bytes = fs::read(path.join(INTERNAL_METADATA_FILE))?;
+    Ok(serde_json::from_slice(&bytes)?)
 }
 
 fn installed_from_manifest(
@@ -366,10 +394,6 @@ fn installed_from_manifest(
         .background
         .as_ref()
         .map(|value| root.join(value));
-    let mode = manifest
-        .input
-        .as_ref()
-        .map_or(ModelMode::Standard, |input| input.mode.clone());
 
     Ok(InstalledModel {
         id: manifest.id,
@@ -378,198 +402,32 @@ fn installed_from_manifest(
         description: manifest.description,
         authors: manifest.authors,
         license: Some(manifest.license),
-        path: model_directory.to_string_lossy().into_owned(),
-        entry_path: entry_path.to_string_lossy().into_owned(),
-        resource_path: root.join("resources").to_string_lossy().into_owned(),
-        cover_path: Some(cover_path.to_string_lossy().into_owned()),
-        background_path: background_path.map(|path| path.to_string_lossy().into_owned()),
-        mode,
-        input: manifest.input,
+        runtime_type: manifest.runtime.runtime_type,
+        path: path_for_frontend(model_directory),
+        entry_path: path_for_frontend(&entry_path),
+        cover_path: Some(path_for_frontend(&cover_path)),
+        background_path: background_path.map(|path| path_for_frontend(&path)),
         actions: manifest.actions,
         is_builtin,
-        is_legacy: false,
     })
 }
 
-fn read_legacy_installed_model(
-    root: &Path,
-    expected_id: &str,
-    metadata: LegacyInstalledModelMetadata,
-) -> Result<InstalledModel, ModelError> {
-    if metadata.id != expected_id || !is_legacy_id(&metadata.id) {
-        return Err(ModelError::new(
-            "legacy installed model metadata has an invalid ID",
-        ));
-    }
-
-    let relative_model_dir = validate_legacy_relative_path(&metadata.model_directory)?;
-    let model_path = root.join(relative_model_dir);
-    let model_files = collect_legacy_model_entries(&model_path)?;
-    if model_files.len() != 1 {
-        return Err(ModelError::new(
-            "legacy installed model no longer contains exactly one .model3.json file",
-        ));
-    }
-
-    let entry_path = model_files[0].clone();
-    let name = entry_path
-        .file_stem()
-        .and_then(|value| value.to_str())
-        .unwrap_or("Legacy model")
-        .trim_end_matches(".model3")
-        .to_owned();
-    let cover = model_path.join("resources/cover.png");
-    let background = model_path.join("resources/background.png");
-
-    Ok(InstalledModel {
-        id: metadata.id,
-        version: "0.0.0-legacy".to_owned(),
-        name,
-        description: None,
-        authors: Vec::new(),
-        license: None,
-        path: model_path.to_string_lossy().into_owned(),
-        entry_path: entry_path.to_string_lossy().into_owned(),
-        resource_path: model_path.join("resources").to_string_lossy().into_owned(),
-        cover_path: cover.exists().then(|| cover.to_string_lossy().into_owned()),
-        background_path: background
-            .exists()
-            .then(|| background.to_string_lossy().into_owned()),
-        mode: metadata.mode,
-        input: None,
-        actions: legacy_actions(&entry_path)?,
-        is_builtin: metadata.is_builtin,
-        is_legacy: true,
-    })
+fn path_for_frontend(path: &Path) -> String {
+    normalize_windows_verbatim_path(&path.to_string_lossy())
 }
 
-fn read_metadata(path: &Path) -> Result<InstalledMetadata, ModelError> {
-    let bytes = fs::read(path.join(INTERNAL_METADATA_FILE))?;
-    let value: Value = serde_json::from_slice(&bytes)?;
-
-    if value.get("formatVersion").is_some() {
-        Ok(InstalledMetadata::Package(Box::new(
-            serde_json::from_value(value)?,
-        )))
-    } else {
-        Ok(InstalledMetadata::Legacy(serde_json::from_value(value)?))
+fn normalize_windows_verbatim_path(value: &str) -> String {
+    if let Some(path) = value.strip_prefix(r"\\?\UNC\") {
+        return format!(r"\\{path}");
     }
-}
-
-fn legacy_actions(entry_path: &Path) -> Result<Vec<PetAction>, ModelError> {
-    let model_json: Value = serde_json::from_slice(&fs::read(entry_path)?)?;
-    let references = model_json.get("FileReferences").and_then(Value::as_object);
-    let mut actions = Vec::new();
-
-    if let Some(motions) = references
-        .and_then(|references| references.get("Motions"))
-        .and_then(Value::as_object)
-    {
-        for (group, values) in motions {
-            let Some(values) = values.as_array() else {
-                continue;
-            };
-            for index in 0..values.len() {
-                let id = if group == "Idle" && index == 0 {
-                    "idle".to_owned()
-                } else {
-                    format!(
-                        "legacy-motion-{}-{index}",
-                        encode_legacy_action_component(group)
-                    )
-                };
-                actions.push(PetAction::Motion {
-                    id,
-                    name: format!("{group} {}", index + 1),
-                    description: None,
-                    motion_group: group.clone(),
-                    motion_index: index as u32,
-                });
-            }
-        }
+    if let Some(path) = value.strip_prefix(r"\\?\") {
+        return path.to_owned();
     }
-
-    if let Some(expressions) = references
-        .and_then(|references| references.get("Expressions"))
-        .and_then(Value::as_array)
-    {
-        for (index, expression) in expressions.iter().enumerate() {
-            let Some(name) = expression.get("Name").and_then(Value::as_str) else {
-                continue;
-            };
-            actions.push(PetAction::Expression {
-                id: format!(
-                    "legacy-expression-{}-{index}",
-                    encode_legacy_action_component(name)
-                ),
-                name: name.to_owned(),
-                description: None,
-                expression: name.to_owned(),
-            });
-        }
-    }
-
-    Ok(actions)
-}
-
-fn encode_legacy_action_component(value: &str) -> String {
-    let encoded = value
-        .as_bytes()
-        .iter()
-        .map(|byte| format!("{byte:02x}"))
-        .collect::<String>();
-
-    if encoded.is_empty() {
-        "empty".to_owned()
-    } else {
-        encoded
-    }
-}
-
-fn collect_legacy_model_entries(root: &Path) -> Result<Vec<PathBuf>, ModelError> {
-    let metadata = fs::symlink_metadata(root)?;
-    if metadata.file_type().is_symlink() || !metadata.is_dir() {
-        return Err(ModelError::new("legacy model path is not a real directory"));
-    }
-
-    let mut files = fs::read_dir(root)?
-        .filter_map(|entry| entry.ok().map(|entry| entry.path()))
-        .filter(|path| {
-            path.is_file()
-                && path
-                    .file_name()
-                    .and_then(|value| value.to_str())
-                    .is_some_and(|value| value.ends_with(".model3.json"))
-        })
-        .collect::<Vec<_>>();
-    files.sort();
-    Ok(files)
-}
-
-fn validate_legacy_relative_path(value: &str) -> Result<PathBuf, ModelError> {
-    let path = Path::new(value);
-    for component in path.components() {
-        match component {
-            Component::Normal(_) | Component::CurDir => {}
-            _ => {
-                return Err(ModelError::new(
-                    "legacy model path contains traversal or is absolute",
-                ));
-            }
-        }
-    }
-    Ok(path.to_path_buf())
+    value.to_owned()
 }
 
 fn is_repository_id(value: &str) -> bool {
-    is_legacy_id(value) || validate_package_id(value).is_ok()
-}
-
-fn is_legacy_id(value: &str) -> bool {
-    value.len() == 64
-        && value
-            .bytes()
-            .all(|character| character.is_ascii_hexdigit() && !character.is_ascii_uppercase())
+    validate_package_id(value).is_ok()
 }
 
 fn unique_timestamp() -> Result<u128, ModelError> {
@@ -622,13 +480,40 @@ impl From<crate::pet_package::PackageError> for ModelError {
 mod tests {
     use super::*;
     use crate::pet_package::{
-        PROTOCOL_VERSION, PetPresentation, PetRuntime, PetRuntimeType, RUNTIME_PROFILE_VERSION,
-        pack_directory,
+        PROTOCOL_VERSION, PetActionMode, PetPresentation, PetRuntime, PetRuntimeType,
+        RUNTIME_PROFILE_VERSION, pack_directory,
     };
-    use image::{ColorType, ImageEncoder, codecs::png::PngEncoder};
-    use std::sync::atomic::{AtomicUsize, Ordering};
+    use image::{Rgba, RgbaImage};
+    use std::{
+        path::PathBuf,
+        sync::atomic::{AtomicUsize, Ordering},
+    };
 
     static TEMP_COUNTER: AtomicUsize = AtomicUsize::new(0);
+
+    #[test]
+    fn frontend_path_removes_windows_verbatim_disk_prefix() {
+        assert_eq!(
+            normalize_windows_verbatim_path(r"\\?\C:\Program Files\MomoPet\model"),
+            r"C:\Program Files\MomoPet\model"
+        );
+    }
+
+    #[test]
+    fn frontend_path_converts_windows_verbatim_unc_prefix() {
+        assert_eq!(
+            normalize_windows_verbatim_path(r"\\?\UNC\server\share\model"),
+            r"\\server\share\model"
+        );
+    }
+
+    #[test]
+    fn frontend_path_preserves_regular_paths() {
+        assert_eq!(
+            normalize_windows_verbatim_path("/opt/momopet/model"),
+            "/opt/momopet/model"
+        );
+    }
 
     struct TestDirectory(PathBuf);
 
@@ -651,32 +536,40 @@ mod tests {
         }
     }
 
-    fn write_png(path: &Path) {
+    fn write_sprite_png(path: &Path) {
         if let Some(parent) = path.parent() {
             fs::create_dir_all(parent).unwrap();
         }
-        PngEncoder::new(fs::File::create(path).unwrap())
-            .write_image(&[255, 255, 255, 255], 1, 1, ColorType::Rgba8.into())
+        let mut image = RgbaImage::new(8, 4);
+        image.put_pixel(1, 1, Rgba([255, 128, 32, 255]));
+        image.put_pixel(5, 1, Rgba([255, 128, 32, 255]));
+        image.save(path).unwrap();
+    }
+
+    fn write_cover(path: &Path) {
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent).unwrap();
+        }
+        RgbaImage::from_pixel(4, 3, Rgba([255, 128, 32, 255]))
+            .save(path)
             .unwrap();
     }
 
     fn write_package_source(root: &Path, version: &str, description: &str) {
-        fs::create_dir_all(root.join("model/motions")).unwrap();
-        fs::create_dir_all(root.join("model/textures")).unwrap();
+        fs::create_dir_all(root.join("model/sprites")).unwrap();
         fs::write(root.join("LICENSE.txt"), "Test license").unwrap();
-        fs::write(root.join("model/pet.moc3"), b"moc").unwrap();
-        fs::write(root.join("model/motions/idle.motion3.json"), b"{}").unwrap();
-        write_png(&root.join("model/textures/texture.png"));
-        write_png(&root.join("resources/cover.png"));
+        write_sprite_png(&root.join("model/sprites/pet.png"));
+        write_cover(&root.join("resources/cover.png"));
         fs::write(
-            root.join("model/pet.model3.json"),
+            root.join("model/pet.sprite.json"),
             br#"{
-                "Version": 3,
-                "FileReferences": {
-                    "Moc": "pet.moc3",
-                    "Textures": ["textures/texture.png"],
-                    "Motions": {"Idle": [{"File": "motions/idle.motion3.json"}]}
-                }
+                "frameSize": {"width": 4, "height": 4},
+                "sheets": {"pet": "sprites/pet.png"},
+                "clips": {
+                    "idle": {"sheet": "pet", "frames": [0], "fps": 8, "loop": true},
+                    "happy": {"sheet": "pet", "frames": [1], "fps": 8, "loop": false}
+                },
+                "interactions": {"tap": "happy"}
             }"#,
         )
         .unwrap();
@@ -697,22 +590,21 @@ mod tests {
                 url: None,
             },
             runtime: PetRuntime {
-                runtime_type: PetRuntimeType::Live2dCubism,
+                runtime_type: PetRuntimeType::Sprite2d,
                 profile_version: RUNTIME_PROFILE_VERSION,
-                entry: "model/pet.model3.json".to_owned(),
+                entry: "model/pet.sprite.json".to_owned(),
             },
             presentation: PetPresentation {
                 cover: "resources/cover.png".to_owned(),
                 background: None,
             },
-            actions: vec![PetAction::Motion {
-                id: "idle".to_owned(),
-                name: "Idle".to_owned(),
+            actions: vec![PetAction::Animation {
+                id: "happy".to_owned(),
+                name: "Happy".to_owned(),
                 description: None,
-                motion_group: "Idle".to_owned(),
-                motion_index: 0,
+                clip: "happy".to_owned(),
+                mode: PetActionMode::Once,
             }],
-            input: None,
             extensions: Default::default(),
         };
         fs::write(
@@ -743,7 +635,7 @@ mod tests {
 
         assert_eq!(first.id, "com.example.momo");
         assert_eq!(first.version, "1.0.0");
-        assert_eq!(first.actions[0].id(), "idle");
+        assert_eq!(first.actions[0].id(), "happy");
         assert_eq!(
             list_models(&app_data.0, &builtin_models).unwrap(),
             vec![first]
@@ -807,10 +699,7 @@ mod tests {
         let models = list_models(&app_data.0, &builtin_models.0).unwrap();
         assert_eq!(models.len(), 1);
         assert!(models[0].is_builtin);
-        assert_eq!(
-            models[0].resource_path,
-            builtin_root.join("resources").to_string_lossy()
-        );
+        assert_eq!(models[0].runtime_type, PetRuntimeType::Sprite2d);
 
         let (_package_dir, package) = create_package("1.1.0", "external collision");
         assert!(
@@ -826,5 +715,88 @@ mod tests {
         let app_data = TestDirectory::new("remove-app-data");
         let error = remove_model("../outside", &app_data.0).unwrap_err();
         assert!(error.to_string().contains("invalid installed pet ID"));
+    }
+
+    #[test]
+    fn removes_the_legacy_repository_without_touching_siblings() {
+        let app_data = TestDirectory::new("legacy-migration");
+        fs::create_dir(app_data.0.join(LEGACY_INSTALL_DIRECTORY)).unwrap();
+        fs::write(
+            app_data.0.join(LEGACY_INSTALL_DIRECTORY).join("old-model"),
+            "legacy",
+        )
+        .unwrap();
+        fs::create_dir(app_data.0.join("keep-me")).unwrap();
+
+        migrate_legacy_repository(&app_data.0).unwrap();
+
+        assert!(!app_data.0.join(LEGACY_INSTALL_DIRECTORY).exists());
+        assert!(app_data.0.join("keep-me").exists());
+    }
+
+    #[test]
+    fn removes_only_custom_models_from_the_previous_app_identifier() {
+        let data_root = TestDirectory::new("previous-app-migration");
+        let app_data = data_root.0.join("com.bytes4096.momopet");
+        let previous_app_data = data_root.0.join(LEGACY_APP_IDENTIFIER);
+        fs::create_dir_all(previous_app_data.join(LEGACY_INSTALL_DIRECTORY)).unwrap();
+        fs::write(
+            previous_app_data
+                .join(LEGACY_INSTALL_DIRECTORY)
+                .join("old-model"),
+            "legacy",
+        )
+        .unwrap();
+        fs::write(previous_app_data.join("keep.txt"), "keep").unwrap();
+
+        migrate_legacy_repository(&app_data).unwrap();
+
+        assert!(!previous_app_data.join(LEGACY_INSTALL_DIRECTORY).exists());
+        assert_eq!(
+            fs::read_to_string(previous_app_data.join("keep.txt")).unwrap(),
+            "keep"
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn refuses_a_legacy_repository_symlink_without_touching_its_target() {
+        use std::os::unix::fs::symlink;
+
+        let app_data = TestDirectory::new("legacy-symlink");
+        let target = app_data.0.join("keep-target");
+        fs::create_dir(&target).unwrap();
+        fs::write(target.join("keep.txt"), "keep").unwrap();
+        symlink(&target, app_data.0.join(LEGACY_INSTALL_DIRECTORY)).unwrap();
+
+        let error = migrate_legacy_repository(&app_data.0).unwrap_err();
+
+        assert!(error.to_string().contains("not a real directory"));
+        assert_eq!(fs::read_to_string(target.join("keep.txt")).unwrap(), "keep");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn refuses_a_previous_app_data_symlink_without_touching_its_target() {
+        use std::os::unix::fs::symlink;
+
+        let data_root = TestDirectory::new("previous-app-symlink");
+        let app_data = data_root.0.join(APP_IDENTIFIER);
+        let target = data_root.0.join("keep-target");
+        fs::create_dir_all(target.join(LEGACY_INSTALL_DIRECTORY)).unwrap();
+        fs::write(
+            target.join(LEGACY_INSTALL_DIRECTORY).join("keep.txt"),
+            "keep",
+        )
+        .unwrap();
+        symlink(&target, data_root.0.join(LEGACY_APP_IDENTIFIER)).unwrap();
+
+        let error = migrate_legacy_repository(&app_data).unwrap_err();
+
+        assert!(error.to_string().contains("not a real directory"));
+        assert_eq!(
+            fs::read_to_string(target.join(LEGACY_INSTALL_DIRECTORY).join("keep.txt")).unwrap(),
+            "keep"
+        );
     }
 }

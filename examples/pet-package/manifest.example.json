@@ -3,7 +3,7 @@
   "id": "com.example.momo",
   "version": "1.0.0",
   "name": "Momo",
-  "description": "MomoPet V1 作者示例 manifest；需要配合作者自己的 Live2D 运行时文件使用。",
+  "description": "MomoPet V1 Sprite2D 宠物包示例。",
   "authors": [
     {
       "name": "Example Author",
@@ -15,50 +15,28 @@
     "file": "LICENSE.txt"
   },
   "runtime": {
-    "type": "live2d-cubism",
+    "type": "sprite2d",
     "profileVersion": 1,
-    "entry": "model/pet.model3.json"
+    "entry": "model/pet.sprite.json"
   },
   "presentation": {
-    "cover": "resources/cover.png",
-    "background": "resources/background.png"
+    "cover": "resources/cover.png"
   },
   "actions": [
     {
-      "id": "idle",
-      "name": "待机",
-      "type": "motion",
-      "motionGroup": "Idle",
-      "motionIndex": 0
+      "id": "happy",
+      "name": "开心",
+      "type": "animation",
+      "clip": "happy",
+      "mode": "once"
     },
     {
-      "id": "wave",
-      "name": "挥手",
-      "type": "motion",
-      "motionGroup": "Wave",
-      "motionIndex": 0
-    },
-    {
-      "id": "smile",
-      "name": "微笑",
-      "type": "expression",
-      "expression": "smile"
+      "id": "sleep",
+      "name": "睡觉",
+      "type": "animation",
+      "clip": "sleep",
+      "mode": "toggle"
     }
   ],
-  "input": {
-    "mode": "standard",
-    "parameters": {
-      "mouseButtons": {
-        "Left": "ParamMouseLeftDown",
-        "Right": "ParamMouseRightDown"
-      },
-      "pointer": [
-        "ParamAngleX",
-        "ParamAngleY",
-        "ParamEyeBallX",
-        "ParamEyeBallY"
-      ]
-    }
-  },
   "extensions": {}
 }

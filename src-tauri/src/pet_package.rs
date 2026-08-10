@@ -1,4 +1,4 @@
-use image::{GenericImageView, ImageFormat, ImageReader, Limits};
+use image::{GenericImageView, ImageFormat, ImageReader, Limits, RgbaImage, imageops};
 use semver::Version;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -23,6 +23,9 @@ pub const MAX_MANIFEST_SIZE: u64 = 256 * 1024;
 pub const MAX_PATH_BYTES: usize = 240;
 pub const MAX_IMAGE_DIMENSION: u32 = 8192;
 pub const MAX_IMAGE_PIXELS: u64 = 33_554_432;
+pub const MAX_SPRITE_SHEETS: usize = 32;
+pub const MAX_SPRITE_CLIPS: usize = 128;
+pub const MAX_CLIP_FRAMES: usize = 512;
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -37,9 +40,8 @@ pub struct PetManifest {
     pub license: PetLicense,
     pub runtime: PetRuntime,
     pub presentation: PetPresentation,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub actions: Vec<PetAction>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub input: Option<PetInput>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub extensions: BTreeMap<String, Value>,
 }
@@ -73,7 +75,7 @@ pub struct PetRuntime {
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum PetRuntimeType {
-    Live2dCubism,
+    Sprite2d,
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
@@ -87,92 +89,80 @@ pub struct PetPresentation {
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(tag = "type", rename_all = "lowercase", deny_unknown_fields)]
 pub enum PetAction {
-    Motion {
+    Animation {
         id: String,
         name: String,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         description: Option<String>,
-        #[serde(rename = "motionGroup")]
-        motion_group: String,
-        #[serde(rename = "motionIndex")]
-        motion_index: u32,
+        clip: String,
+        mode: PetActionMode,
     },
-    Expression {
-        id: String,
-        name: String,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        description: Option<String>,
-        expression: String,
-    },
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum PetActionMode {
+    Once,
+    Toggle,
 }
 
 impl PetAction {
     pub fn id(&self) -> &str {
         match self {
-            Self::Motion { id, .. } | Self::Expression { id, .. } => id,
+            Self::Animation { id, .. } => id,
         }
     }
 
     pub fn name(&self) -> &str {
         match self {
-            Self::Motion { name, .. } | Self::Expression { name, .. } => name,
+            Self::Animation { name, .. } => name,
         }
     }
 
     fn description(&self) -> Option<&str> {
         match self {
-            Self::Motion { description, .. } | Self::Expression { description, .. } => {
-                description.as_deref()
-            }
+            Self::Animation { description, .. } => description.as_deref(),
         }
     }
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct PetInput {
-    pub mode: ModelMode,
-    pub parameters: InputParameters,
-}
-
-#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
-#[serde(rename_all = "lowercase")]
-pub enum ModelMode {
-    #[default]
-    Standard,
-    Keyboard,
-    Gamepad,
-}
-
-#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct InputParameters {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub hands: Option<HandParameters>,
+pub struct SpriteConfig {
+    pub frame_size: SpriteSize,
+    #[serde(default = "default_sprite_anchor")]
+    pub anchor: SpriteAnchor,
+    pub sheets: BTreeMap<String, String>,
+    pub clips: BTreeMap<String, SpriteClip>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub mouse_buttons: BTreeMap<String, String>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub pointer: Vec<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub gamepad: Option<GamepadParameters>,
+    pub interactions: BTreeMap<String, String>,
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct HandParameters {
-    pub left: String,
-    pub right: String,
+pub struct SpriteSize {
+    pub width: u32,
+    pub height: u32,
 }
 
-#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct GamepadParameters {
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub axes: BTreeMap<String, String>,
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub thumb_buttons: BTreeMap<String, String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub stick_hands: Option<HandParameters>,
+pub struct SpriteAnchor {
+    pub x: f32,
+    pub y: f32,
+}
+
+fn default_sprite_anchor() -> SpriteAnchor {
+    SpriteAnchor { x: 0.5, y: 1.0 }
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct SpriteClip {
+    pub sheet: String,
+    pub frames: Vec<u32>,
+    pub fps: u32,
+    pub r#loop: bool,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -249,7 +239,7 @@ fn validate_directory_with_options(
         .collect::<Result<BTreeSet<_>, _>>()?;
 
     validate_manifest(&manifest, &file_names)?;
-    validate_model(root, &manifest, &file_names)?;
+    validate_sprite(root, &manifest, &file_names)?;
     validate_png_files(root, &files)?;
 
     Ok(ValidatedPackage {
@@ -334,6 +324,146 @@ pub fn pack_directory(source: &Path, output: &Path) -> Result<ValidatedPackage, 
             })?;
         Ok::<ValidatedPackage, PackageError>(archive_validation)
     })()
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct PackedSpriteSheet {
+    pub frame_width: u32,
+    pub frame_height: u32,
+    pub frame_count: usize,
+    pub columns: u32,
+    pub rows: u32,
+}
+
+pub fn pack_sprite_sheet(
+    source: &Path,
+    output: &Path,
+    columns: u32,
+) -> Result<PackedSpriteSheet, PackageError> {
+    if columns == 0 || columns > 64 {
+        return Err(PackageError::new(
+            "sprite sheet columns must be between 1 and 64",
+        ));
+    }
+    if !output
+        .extension()
+        .and_then(|extension| extension.to_str())
+        .is_some_and(|extension| extension.eq_ignore_ascii_case("png"))
+    {
+        return Err(PackageError::new("sprite sheet output must be a PNG file"));
+    }
+    if output.exists() {
+        return Err(PackageError::new(format!(
+            "sprite sheet output already exists: {}",
+            output.display()
+        )));
+    }
+
+    let source = source.canonicalize().map_err(|error| {
+        PackageError::new(format!(
+            "cannot read sprite frame directory '{}': {error}",
+            source.display()
+        ))
+    })?;
+    if !fs::metadata(&source)?.is_dir() {
+        return Err(PackageError::new("sprite frame source must be a directory"));
+    }
+
+    let output_parent = output
+        .parent()
+        .filter(|path| !path.as_os_str().is_empty())
+        .unwrap_or_else(|| Path::new("."));
+    fs::create_dir_all(output_parent)?;
+    let output_parent = output_parent.canonicalize()?;
+    if output_parent.starts_with(&source) {
+        return Err(PackageError::new(
+            "sprite sheet output must be outside the frame directory",
+        ));
+    }
+
+    let mut entries = fs::read_dir(&source)?.collect::<Result<Vec<_>, _>>()?;
+    entries.sort_by_key(|entry| entry.file_name());
+    let mut frames = Vec::new();
+    for entry in entries {
+        let metadata = fs::symlink_metadata(entry.path())?;
+        if metadata.file_type().is_symlink() {
+            return Err(PackageError::new("symbolic links are not allowed"));
+        }
+        if !metadata.is_file()
+            || !entry
+                .path()
+                .extension()
+                .and_then(|extension| extension.to_str())
+                .is_some_and(|extension| extension.eq_ignore_ascii_case("png"))
+        {
+            continue;
+        }
+        let image = ImageReader::open(entry.path())?
+            .with_guessed_format()?
+            .decode()?;
+        if !image.color().has_alpha() {
+            return Err(PackageError::new(format!(
+                "sprite frame must have an alpha channel: {}",
+                entry.path().display()
+            )));
+        }
+        frames.push((entry.path(), image.to_rgba8()));
+    }
+    if frames.is_empty() {
+        return Err(PackageError::new(
+            "sprite frame directory does not contain any PNG files",
+        ));
+    }
+    if frames.len() > MAX_CLIP_FRAMES {
+        return Err(PackageError::new(format!(
+            "sprite frame directory cannot contain more than {MAX_CLIP_FRAMES} PNG files"
+        )));
+    }
+
+    let frame_width = frames[0].1.width();
+    let frame_height = frames[0].1.height();
+    for (path, frame) in &frames {
+        if frame.dimensions() != (frame_width, frame_height) {
+            return Err(PackageError::new(format!(
+                "sprite frames must use identical dimensions: {}",
+                path.display()
+            )));
+        }
+    }
+
+    let frame_count = frames.len();
+    let columns = columns.min(frame_count as u32);
+    let rows = (frame_count as u32).div_ceil(columns);
+    let width = frame_width
+        .checked_mul(columns)
+        .ok_or_else(|| PackageError::new("sprite sheet width overflow"))?;
+    let height = frame_height
+        .checked_mul(rows)
+        .ok_or_else(|| PackageError::new("sprite sheet height overflow"))?;
+    if width > MAX_IMAGE_DIMENSION
+        || height > MAX_IMAGE_DIMENSION
+        || u64::from(width) * u64::from(height) > MAX_IMAGE_PIXELS
+    {
+        return Err(PackageError::new(
+            "packed sprite sheet exceeds the image budget",
+        ));
+    }
+
+    let mut sheet = RgbaImage::new(width, height);
+    for (index, (_, frame)) in frames.iter().enumerate() {
+        let x = (index as u32 % columns) * frame_width;
+        let y = (index as u32 / columns) * frame_height;
+        imageops::overlay(&mut sheet, frame, i64::from(x), i64::from(y));
+    }
+    sheet.save_with_format(output, ImageFormat::Png)?;
+
+    Ok(PackedSpriteSheet {
+        frame_width,
+        frame_height,
+        frame_count,
+        columns,
+        rows,
+    })
 }
 
 fn validate_archive_source(source: &Path) -> Result<(), PackageError> {
@@ -623,7 +753,7 @@ fn validate_manifest(manifest: &PetManifest, files: &BTreeSet<String>) -> Result
     }
     if manifest.runtime.profile_version != RUNTIME_PROFILE_VERSION {
         return Err(PackageError::new(format!(
-            "unsupported Live2D runtime profile version: {}",
+            "unsupported Sprite2D runtime profile version: {}",
             manifest.runtime.profile_version
         )));
     }
@@ -664,19 +794,19 @@ fn validate_manifest(manifest: &PetManifest, files: &BTreeSet<String>) -> Result
     }
 
     let entry = validate_manifest_file("runtime.entry", &manifest.runtime.entry, files)?;
-    if !entry.ends_with(".model3.json") {
+    if !entry.ends_with(".sprite.json") {
         return Err(PackageError::new(
-            "runtime.entry must reference a .model3.json file",
+            "runtime.entry must reference a .sprite.json file",
         ));
     }
 
-    let model_entries = files
+    let sprite_entries = files
         .iter()
-        .filter(|path| path.ends_with(".model3.json"))
+        .filter(|path| path.ends_with(".sprite.json"))
         .count();
-    if model_entries != 1 {
+    if sprite_entries != 1 {
         return Err(PackageError::new(format!(
-            "V1 packages must contain exactly one .model3.json file, found {model_entries}"
+            "V1 packages must contain exactly one .sprite.json file, found {sprite_entries}"
         )));
     }
 
@@ -693,13 +823,12 @@ fn validate_manifest(manifest: &PetManifest, files: &BTreeSet<String>) -> Result
         }
     }
 
-    if manifest.actions.is_empty() || manifest.actions.len() > 128 {
+    if manifest.actions.len() > 128 {
         return Err(PackageError::new(
-            "actions must contain between 1 and 128 entries",
+            "actions cannot contain more than 128 entries",
         ));
     }
     let mut action_ids = HashSet::new();
-    let mut has_idle_motion = false;
     for action in &manifest.actions {
         validate_action_id(action.id())?;
         validate_text("action name", action.name(), 100)?;
@@ -713,36 +842,12 @@ fn validate_manifest(manifest: &PetManifest, files: &BTreeSet<String>) -> Result
             )));
         }
 
-        match action {
-            PetAction::Motion {
-                id,
-                motion_group,
-                motion_index,
-                ..
-            } => {
-                validate_text("motion group", motion_group, 128)?;
-                if *motion_index > 65_535 {
-                    return Err(PackageError::new("motionIndex exceeds 65535"));
-                }
-                if id == "idle" {
-                    has_idle_motion = true;
-                }
-            }
-            PetAction::Expression { expression, .. } => {
-                validate_text("expression", expression, 128)?;
-            }
-        }
-    }
-    if !has_idle_motion {
-        return Err(PackageError::new(
-            "actions must contain a motion action with ID 'idle'",
-        ));
+        let PetAction::Animation { clip, .. } = action;
+        validate_action_id(clip).map_err(|_| {
+            PackageError::new(format!("action '{}' has an invalid clip ID", action.id()))
+        })?;
     }
 
-    if let Some(input) = &manifest.input {
-        validate_input(input)?;
-    }
-    validate_input_overlay_files(files)?;
     for key in manifest.extensions.keys() {
         validate_package_id(key).map_err(|_| {
             PackageError::new(format!(
@@ -754,253 +859,198 @@ fn validate_manifest(manifest: &PetManifest, files: &BTreeSet<String>) -> Result
     Ok(())
 }
 
-fn validate_input_overlay_files(files: &BTreeSet<String>) -> Result<(), PackageError> {
-    for file in files {
-        for directory in ["resources/left-keys/", "resources/right-keys/"] {
-            let Some(relative) = file.strip_prefix(directory) else {
-                continue;
-            };
-            if relative.contains('/') || !relative.to_ascii_lowercase().ends_with(".png") {
-                return Err(PackageError::new(format!(
-                    "input overlay files must be direct PNG children of {directory}: {file}"
-                )));
-            }
-        }
-    }
-
-    Ok(())
-}
-
-fn validate_input(input: &PetInput) -> Result<(), PackageError> {
-    let parameters = &input.parameters;
-    let has_gamepad_mapping = parameters.gamepad.as_ref().is_some_and(|gamepad| {
-        !gamepad.axes.is_empty()
-            || !gamepad.thumb_buttons.is_empty()
-            || gamepad.stick_hands.is_some()
-    });
-    if parameters.hands.is_none()
-        && parameters.mouse_buttons.is_empty()
-        && parameters.pointer.is_empty()
-        && !has_gamepad_mapping
-    {
-        return Err(PackageError::new(
-            "input.parameters must declare at least one mapping",
-        ));
-    }
-    if input.mode == ModelMode::Gamepad && !has_gamepad_mapping {
-        return Err(PackageError::new(
-            "gamepad input mode requires gamepad parameter mappings",
-        ));
-    }
-
-    if let Some(hands) = &parameters.hands {
-        validate_parameter_id("left hand parameter", &hands.left)?;
-        validate_parameter_id("right hand parameter", &hands.right)?;
-    }
-    validate_parameter_map("mouse button", &parameters.mouse_buttons)?;
-    if parameters.pointer.len() > 32 {
-        return Err(PackageError::new(
-            "input pointer mappings cannot exceed 32 entries",
-        ));
-    }
-    let mut pointer_parameters = HashSet::new();
-    for parameter in &parameters.pointer {
-        validate_parameter_id("pointer parameter", parameter)?;
-        if !pointer_parameters.insert(parameter) {
-            return Err(PackageError::new(format!(
-                "duplicate pointer parameter mapping: {parameter}"
-            )));
-        }
-    }
-    if let Some(gamepad) = &parameters.gamepad {
-        validate_parameter_map("gamepad axis", &gamepad.axes)?;
-        validate_parameter_map("gamepad thumb button", &gamepad.thumb_buttons)?;
-        if let Some(stick_hands) = &gamepad.stick_hands {
-            validate_parameter_id("left stick hand parameter", &stick_hands.left)?;
-            validate_parameter_id("right stick hand parameter", &stick_hands.right)?;
-        }
-    }
-
-    Ok(())
-}
-
-fn validate_parameter_map(
-    label: &str,
-    parameters: &BTreeMap<String, String>,
-) -> Result<(), PackageError> {
-    if parameters.len() > 32 {
-        return Err(PackageError::new(format!(
-            "{label} mappings cannot exceed 32 entries"
-        )));
-    }
-    for (input, parameter) in parameters {
-        validate_text(&format!("{label} input"), input, 128)?;
-        validate_parameter_id(&format!("{label} parameter"), parameter)?;
-    }
-    Ok(())
-}
-
-fn validate_parameter_id(label: &str, value: &str) -> Result<(), PackageError> {
-    validate_text(label, value, 128)
-}
-
-fn validate_model(
+fn validate_sprite(
     root: &Path,
     manifest: &PetManifest,
     files: &BTreeSet<String>,
 ) -> Result<(), PackageError> {
-    let entry_path = root.join(validate_portable_path(&manifest.runtime.entry)?);
-    let model_json: Value = serde_json::from_slice(&fs::read(&entry_path)?)?;
-    let file_references_value = model_json
-        .get("FileReferences")
-        .ok_or_else(|| PackageError::new("model is missing FileReferences"))?;
-    let file_references = file_references_value
-        .as_object()
-        .ok_or_else(|| PackageError::new("model FileReferences must be an object"))?;
-    if file_references.get("Moc").and_then(Value::as_str).is_none() {
-        return Err(PackageError::new(
-            "model FileReferences.Moc must be a file path",
-        ));
-    }
-    let textures = file_references
-        .get("Textures")
-        .and_then(Value::as_array)
-        .ok_or_else(|| PackageError::new("model Textures must be an array of PNG paths"))?;
-    if textures.is_empty() {
-        return Err(PackageError::new(
-            "model Textures must contain at least one PNG path",
-        ));
-    }
-    for texture in textures {
-        let texture = texture
-            .as_str()
-            .ok_or_else(|| PackageError::new("Textures must contain only file paths"))?;
-        if !texture.to_ascii_lowercase().ends_with(".png") {
-            return Err(PackageError::new(format!(
-                "Live2D texture paths must use PNG files: {texture}"
-            )));
-        }
-    }
+    let entry_relative = validate_portable_path(&manifest.runtime.entry)?;
+    let entry_path = root.join(entry_relative);
+    let config: SpriteConfig = serde_json::from_slice(&fs::read(&entry_path)?)?;
 
-    let mut references = Vec::new();
-    collect_reference_paths(file_references_value, None, &mut references)?;
-    if references.is_empty() {
+    let frame_width = config.frame_size.width;
+    let frame_height = config.frame_size.height;
+    if frame_width == 0
+        || frame_height == 0
+        || frame_width > MAX_IMAGE_DIMENSION
+        || frame_height > MAX_IMAGE_DIMENSION
+        || u64::from(frame_width) * u64::from(frame_height) > MAX_IMAGE_PIXELS
+    {
         return Err(PackageError::new(
-            "model does not reference any runtime files",
+            "sprite frameSize exceeds the image budget",
         ));
+    }
+    if !config.anchor.x.is_finite()
+        || !config.anchor.y.is_finite()
+        || !(0.0..=1.0).contains(&config.anchor.x)
+        || !(0.0..=1.0).contains(&config.anchor.y)
+    {
+        return Err(PackageError::new(
+            "sprite anchor coordinates must be finite values between 0 and 1",
+        ));
+    }
+    if config.sheets.is_empty() || config.sheets.len() > MAX_SPRITE_SHEETS {
+        return Err(PackageError::new(format!(
+            "sprite sheets must contain between 1 and {MAX_SPRITE_SHEETS} entries"
+        )));
+    }
+    if config.clips.is_empty() || config.clips.len() > MAX_SPRITE_CLIPS {
+        return Err(PackageError::new(format!(
+            "sprite clips must contain between 1 and {MAX_SPRITE_CLIPS} entries"
+        )));
     }
 
     let entry_parent = Path::new(&manifest.runtime.entry)
         .parent()
         .unwrap_or_else(|| Path::new(""));
-    for reference in references {
-        let relative = validate_portable_path(&reference)?;
+    let mut sheet_images = BTreeMap::<String, RgbaImage>::new();
+    let mut sheet_frame_counts = BTreeMap::<String, u32>::new();
+
+    for (sheet_id, file) in &config.sheets {
+        validate_action_id(sheet_id)
+            .map_err(|_| PackageError::new(format!("invalid sprite sheet ID: {sheet_id}")))?;
+        if !file.to_ascii_lowercase().ends_with(".png") {
+            return Err(PackageError::new(format!(
+                "sprite sheet '{sheet_id}' must reference a PNG file"
+            )));
+        }
+
+        let relative = validate_portable_path(file)?;
         let resolved = path_to_portable_string(&entry_parent.join(relative))?;
         if !files.contains(&resolved) {
             return Err(PackageError::new(format!(
-                "referenced model file is missing: {reference}"
+                "referenced sprite sheet is missing: {file}"
             )));
         }
-    }
 
-    let motions = file_references.get("Motions").and_then(Value::as_object);
-    let expressions = file_references.get("Expressions").and_then(Value::as_array);
-
-    for action in &manifest.actions {
-        match action {
-            PetAction::Motion {
-                id,
-                motion_group,
-                motion_index,
-                ..
-            } => {
-                let motion = motions
-                    .and_then(|groups| groups.get(motion_group))
-                    .and_then(Value::as_array)
-                    .and_then(|motions| motions.get(*motion_index as usize))
-                    .and_then(Value::as_object);
-                let Some(motion) = motion else {
-                    return Err(PackageError::new(format!(
-                        "action '{id}' references missing motion {motion_group}[{motion_index}]"
-                    )));
-                };
-                if motion.get("File").and_then(Value::as_str).is_none() {
-                    return Err(PackageError::new(format!(
-                        "action '{id}' motion target is missing a File path"
-                    )));
-                }
-            }
-            PetAction::Expression { id, expression, .. } => {
-                let expression_target = expressions.and_then(|items| {
-                    items.iter().find(|item| {
-                        item.get("Name").and_then(Value::as_str) == Some(expression.as_str())
-                    })
-                });
-                let Some(expression_target) = expression_target else {
-                    return Err(PackageError::new(format!(
-                        "action '{id}' references missing expression '{expression}'"
-                    )));
-                };
-                if expression_target
-                    .get("File")
-                    .and_then(Value::as_str)
-                    .is_none()
-                {
-                    return Err(PackageError::new(format!(
-                        "action '{id}' expression target is missing a File path"
-                    )));
-                }
-            }
-        }
-    }
-
-    Ok(())
-}
-
-fn collect_reference_paths(
-    value: &Value,
-    key: Option<&str>,
-    references: &mut Vec<String>,
-) -> Result<(), PackageError> {
-    const SINGLE_PATH_KEYS: &[&str] = &[
-        "Moc",
-        "Physics",
-        "Pose",
-        "UserData",
-        "DisplayInfo",
-        "File",
-        "Sound",
-    ];
-
-    match value {
-        Value::String(path) if key.is_some_and(|key| SINGLE_PATH_KEYS.contains(&key)) => {
-            references.push(path.clone());
-        }
-        _ if key.is_some_and(|key| SINGLE_PATH_KEYS.contains(&key)) => {
-            let key = key.unwrap_or("unknown");
+        let reader = ImageReader::open(root.join(&resolved))?.with_guessed_format()?;
+        if reader.format() != Some(ImageFormat::Png) {
             return Err(PackageError::new(format!(
-                "model {key} reference must be a file path"
+                "sprite sheet is not a PNG file: {file}"
             )));
         }
-        Value::Array(items) if key == Some("Textures") => {
-            for item in items {
-                let path = item
-                    .as_str()
-                    .ok_or_else(|| PackageError::new("Textures must contain only file paths"))?;
-                references.push(path.to_owned());
+        let image = reader.decode()?;
+        if !image.color().has_alpha() {
+            return Err(PackageError::new(format!(
+                "sprite sheet must have an alpha channel: {file}"
+            )));
+        }
+        let (width, height) = image.dimensions();
+        if width % frame_width != 0 || height % frame_height != 0 {
+            return Err(PackageError::new(format!(
+                "sprite sheet dimensions must be divisible by frameSize: {file} ({width}x{height})"
+            )));
+        }
+        let frame_count = (width / frame_width)
+            .checked_mul(height / frame_height)
+            .ok_or_else(|| PackageError::new("sprite sheet frame count overflow"))?;
+        if frame_count == 0 {
+            return Err(PackageError::new(format!(
+                "sprite sheet does not contain any frames: {file}"
+            )));
+        }
+        sheet_frame_counts.insert(sheet_id.clone(), frame_count);
+        sheet_images.insert(sheet_id.clone(), image.to_rgba8());
+    }
+
+    let Some(idle) = config.clips.get("idle") else {
+        return Err(PackageError::new("sprite clips must define 'idle'"));
+    };
+    if !idle.r#loop {
+        return Err(PackageError::new("the 'idle' sprite clip must loop"));
+    }
+
+    let mut referenced_frames = BTreeMap::<String, BTreeSet<u32>>::new();
+    for (clip_id, clip) in &config.clips {
+        validate_action_id(clip_id)
+            .map_err(|_| PackageError::new(format!("invalid sprite clip ID: {clip_id}")))?;
+        let Some(frame_count) = sheet_frame_counts.get(&clip.sheet) else {
+            return Err(PackageError::new(format!(
+                "sprite clip '{clip_id}' references missing sheet '{}'",
+                clip.sheet
+            )));
+        };
+        if clip.frames.is_empty() || clip.frames.len() > MAX_CLIP_FRAMES {
+            return Err(PackageError::new(format!(
+                "sprite clip '{clip_id}' must contain between 1 and {MAX_CLIP_FRAMES} frames"
+            )));
+        }
+        if !(1..=60).contains(&clip.fps) {
+            return Err(PackageError::new(format!(
+                "sprite clip '{clip_id}' fps must be between 1 and 60"
+            )));
+        }
+        for frame in &clip.frames {
+            if frame >= frame_count {
+                return Err(PackageError::new(format!(
+                    "sprite clip '{clip_id}' references out-of-range frame {frame}"
+                )));
+            }
+            referenced_frames
+                .entry(clip.sheet.clone())
+                .or_default()
+                .insert(*frame);
+        }
+    }
+
+    let action_ids = manifest
+        .actions
+        .iter()
+        .map(PetAction::id)
+        .collect::<HashSet<_>>();
+    for action in &manifest.actions {
+        let PetAction::Animation { clip, mode, .. } = action;
+        let Some(target) = config.clips.get(clip) else {
+            return Err(PackageError::new(format!(
+                "action '{}' references missing sprite clip '{clip}'",
+                action.id()
+            )));
+        };
+        if matches!(mode, PetActionMode::Toggle) && !target.r#loop {
+            return Err(PackageError::new(format!(
+                "toggle action '{}' must reference a looping clip",
+                action.id()
+            )));
+        }
+    }
+
+    for (event, action_id) in &config.interactions {
+        if event != "tap" {
+            return Err(PackageError::new(format!(
+                "unsupported sprite interaction event: {event}"
+            )));
+        }
+        if !action_ids.contains(action_id.as_str()) {
+            return Err(PackageError::new(format!(
+                "sprite interaction '{event}' references missing action '{action_id}'"
+            )));
+        }
+    }
+
+    for (sheet_id, frames) in referenced_frames {
+        let image = &sheet_images[&sheet_id];
+        let columns = image.width() / frame_width;
+        for frame in frames {
+            let x = (frame % columns) * frame_width;
+            let y = (frame / columns) * frame_height;
+            let corners = [
+                image.get_pixel(x, y),
+                image.get_pixel(x + frame_width - 1, y),
+                image.get_pixel(x, y + frame_height - 1),
+                image.get_pixel(x + frame_width - 1, y + frame_height - 1),
+            ];
+            if corners.iter().any(|pixel| pixel[3] != 0) {
+                return Err(PackageError::new(format!(
+                    "sprite sheet '{sheet_id}' frame {frame} must have transparent corners"
+                )));
+            }
+            let frame_image = imageops::crop_imm(image, x, y, frame_width, frame_height).to_image();
+            if !frame_image.pixels().any(|pixel| pixel[3] != 0) {
+                return Err(PackageError::new(format!(
+                    "sprite sheet '{sheet_id}' frame {frame} is empty"
+                )));
             }
         }
-        Value::Array(items) => {
-            for item in items {
-                collect_reference_paths(item, key, references)?;
-            }
-        }
-        Value::Object(object) => {
-            for (child_key, child_value) in object {
-                collect_reference_paths(child_value, Some(child_key), references)?;
-            }
-        }
-        _ => {}
     }
 
     Ok(())
@@ -1321,7 +1371,7 @@ impl From<image::ImageError> for PackageError {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use image::{ColorType, ImageEncoder, codecs::png::PngEncoder};
+    use image::{Rgba, RgbaImage};
     use std::sync::atomic::{AtomicUsize, Ordering};
 
     static TEMP_COUNTER: AtomicUsize = AtomicUsize::new(0);
@@ -1347,13 +1397,24 @@ mod tests {
         }
     }
 
-    fn write_png(path: &Path) {
+    fn write_sprite_png(path: &Path, frames: u32) {
         if let Some(parent) = path.parent() {
             fs::create_dir_all(parent).unwrap();
         }
-        let encoder = PngEncoder::new(fs::File::create(path).unwrap());
-        encoder
-            .write_image(&[255, 255, 255, 255], 1, 1, ColorType::Rgba8.into())
+        let mut image = RgbaImage::new(4 * frames, 4);
+        for frame in 0..frames {
+            image.put_pixel(frame * 4 + 1, 1, Rgba([255, 128, 32, 255]));
+            image.put_pixel(frame * 4 + 2, 2, Rgba([255, 128, 32, 255]));
+        }
+        image.save(path).unwrap();
+    }
+
+    fn write_cover(path: &Path) {
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent).unwrap();
+        }
+        RgbaImage::from_pixel(4, 3, Rgba([255, 128, 32, 255]))
+            .save(path)
             .unwrap();
     }
 
@@ -1374,58 +1435,41 @@ mod tests {
                 url: None,
             },
             runtime: PetRuntime {
-                runtime_type: PetRuntimeType::Live2dCubism,
+                runtime_type: PetRuntimeType::Sprite2d,
                 profile_version: RUNTIME_PROFILE_VERSION,
-                entry: "model/pet.model3.json".to_owned(),
+                entry: "model/pet.sprite.json".to_owned(),
             },
             presentation: PetPresentation {
                 cover: "resources/cover.png".to_owned(),
                 background: None,
             },
-            actions: vec![
-                PetAction::Motion {
-                    id: "idle".to_owned(),
-                    name: "Idle".to_owned(),
-                    description: None,
-                    motion_group: "Idle".to_owned(),
-                    motion_index: 0,
-                },
-                PetAction::Expression {
-                    id: "smile".to_owned(),
-                    name: "Smile".to_owned(),
-                    description: None,
-                    expression: "smile".to_owned(),
-                },
-            ],
-            input: None,
+            actions: vec![PetAction::Animation {
+                id: "happy".to_owned(),
+                name: "Happy".to_owned(),
+                description: None,
+                clip: "happy".to_owned(),
+                mode: PetActionMode::Once,
+            }],
             extensions: BTreeMap::new(),
         }
     }
 
     fn write_valid_source(root: &Path, version: &str) {
-        fs::create_dir_all(root.join("model/motions")).unwrap();
-        fs::create_dir_all(root.join("model/expressions")).unwrap();
-        fs::create_dir_all(root.join("model/textures")).unwrap();
+        fs::create_dir_all(root.join("model/sprites")).unwrap();
         fs::write(root.join("LICENSE.txt"), "Test redistribution license").unwrap();
-        fs::write(root.join("model/pet.moc3"), b"moc").unwrap();
-        fs::write(root.join("model/motions/idle.motion3.json"), b"{}").unwrap();
-        fs::write(root.join("model/expressions/smile.exp3.json"), b"{}").unwrap();
-        write_png(&root.join("model/textures/texture.png"));
-        write_png(&root.join("resources/cover.png"));
+        write_sprite_png(&root.join("model/sprites/pet.png"), 4);
+        write_cover(&root.join("resources/cover.png"));
         fs::write(
-            root.join("model/pet.model3.json"),
+            root.join("model/pet.sprite.json"),
             br#"{
-                "Version": 3,
-                "FileReferences": {
-                    "Moc": "pet.moc3",
-                    "Textures": ["textures/texture.png"],
-                    "Motions": {
-                        "Idle": [{"File": "motions/idle.motion3.json"}]
-                    },
-                    "Expressions": [
-                        {"Name": "smile", "File": "expressions/smile.exp3.json"}
-                    ]
-                }
+                "frameSize": {"width": 4, "height": 4},
+                "anchor": {"x": 0.5, "y": 1.0},
+                "sheets": {"pet": "sprites/pet.png"},
+                "clips": {
+                    "idle": {"sheet": "pet", "frames": [0, 1], "fps": 8, "loop": true},
+                    "happy": {"sheet": "pet", "frames": [2, 3], "fps": 10, "loop": false}
+                },
+                "interactions": {"tap": "happy"}
             }"#,
         )
         .unwrap();
@@ -1448,7 +1492,7 @@ mod tests {
 
         assert_eq!(packed, validated);
         assert_eq!(validated.manifest.id, "com.example.momo");
-        assert_eq!(validated.manifest.actions.len(), 2);
+        assert_eq!(validated.manifest.actions.len(), 1);
     }
 
     #[test]
@@ -1472,32 +1516,35 @@ mod tests {
 
         let missing_idle = TestDirectory::new("missing-idle");
         write_valid_source(&missing_idle.0, "1.0.0");
-        let mut manifest = valid_manifest("1.0.0");
-        manifest.actions.remove(0);
+        let mut config: Value = serde_json::from_slice(
+            &fs::read(missing_idle.0.join("model/pet.sprite.json")).unwrap(),
+        )
+        .unwrap();
+        config["clips"].as_object_mut().unwrap().remove("idle");
         fs::write(
-            missing_idle.0.join(MANIFEST_FILE),
-            serde_json::to_vec_pretty(&manifest).unwrap(),
+            missing_idle.0.join("model/pet.sprite.json"),
+            serde_json::to_vec_pretty(&config).unwrap(),
         )
         .unwrap();
         assert!(
             validate_directory(&missing_idle.0)
                 .unwrap_err()
                 .to_string()
-                .contains("ID 'idle'")
+                .contains("define 'idle'")
         );
     }
 
     #[test]
-    fn rejects_actions_that_do_not_exist_in_the_model() {
+    fn rejects_actions_that_do_not_reference_a_clip() {
         let source = TestDirectory::new("missing-action");
         write_valid_source(&source.0, "1.0.0");
         let mut manifest = valid_manifest("1.0.0");
-        manifest.actions.push(PetAction::Motion {
+        manifest.actions.push(PetAction::Animation {
             id: "wave".to_owned(),
             name: "Wave".to_owned(),
             description: None,
-            motion_group: "Wave".to_owned(),
-            motion_index: 0,
+            clip: "wave".to_owned(),
+            mode: PetActionMode::Once,
         });
         fs::write(
             source.0.join(MANIFEST_FILE),
@@ -1506,92 +1553,86 @@ mod tests {
         .unwrap();
 
         let error = validate_directory(&source.0).unwrap_err();
-        assert!(error.to_string().contains("missing motion Wave[0]"));
+        assert!(error.to_string().contains("missing sprite clip 'wave'"));
     }
 
     #[test]
-    fn rejects_empty_and_duplicate_input_mappings() {
-        let empty_input = TestDirectory::new("empty-input");
-        write_valid_source(&empty_input.0, "1.0.0");
-        let mut manifest = valid_manifest("1.0.0");
-        manifest.input = Some(PetInput {
-            mode: ModelMode::Gamepad,
-            parameters: InputParameters::default(),
-        });
+    fn rejects_non_looping_idle_and_out_of_range_frames() {
+        let invalid_idle = TestDirectory::new("invalid-idle");
+        write_valid_source(&invalid_idle.0, "1.0.0");
+        let mut config: Value = serde_json::from_slice(
+            &fs::read(invalid_idle.0.join("model/pet.sprite.json")).unwrap(),
+        )
+        .unwrap();
+        config["clips"]["idle"]["loop"] = Value::Bool(false);
         fs::write(
-            empty_input.0.join(MANIFEST_FILE),
+            invalid_idle.0.join("model/pet.sprite.json"),
+            serde_json::to_vec_pretty(&config).unwrap(),
+        )
+        .unwrap();
+        assert!(
+            validate_directory(&invalid_idle.0)
+                .unwrap_err()
+                .to_string()
+                .contains("must loop")
+        );
+
+        let invalid_frame = TestDirectory::new("invalid-frame");
+        write_valid_source(&invalid_frame.0, "1.0.0");
+        let mut config: Value = serde_json::from_slice(
+            &fs::read(invalid_frame.0.join("model/pet.sprite.json")).unwrap(),
+        )
+        .unwrap();
+        config["clips"]["happy"]["frames"] = serde_json::json!([99]);
+        fs::write(
+            invalid_frame.0.join("model/pet.sprite.json"),
+            serde_json::to_vec_pretty(&config).unwrap(),
+        )
+        .unwrap();
+        assert!(
+            validate_directory(&invalid_frame.0)
+                .unwrap_err()
+                .to_string()
+                .contains("out-of-range frame")
+        );
+    }
+
+    #[test]
+    fn rejects_invalid_toggle_and_interaction_targets() {
+        let invalid_toggle = TestDirectory::new("invalid-toggle");
+        write_valid_source(&invalid_toggle.0, "1.0.0");
+        let mut manifest = valid_manifest("1.0.0");
+        let PetAction::Animation { mode, .. } = &mut manifest.actions[0];
+        *mode = PetActionMode::Toggle;
+        fs::write(
+            invalid_toggle.0.join(MANIFEST_FILE),
             serde_json::to_vec_pretty(&manifest).unwrap(),
         )
         .unwrap();
         assert!(
-            validate_directory(&empty_input.0)
+            validate_directory(&invalid_toggle.0)
                 .unwrap_err()
                 .to_string()
-                .contains("at least one mapping")
+                .contains("must reference a looping clip")
         );
 
-        let duplicate_pointer = TestDirectory::new("duplicate-pointer");
-        write_valid_source(&duplicate_pointer.0, "1.0.0");
-        let mut manifest = valid_manifest("1.0.0");
-        manifest.input = Some(PetInput {
-            mode: ModelMode::Standard,
-            parameters: InputParameters {
-                pointer: vec!["ParamAngleX".to_owned(), "ParamAngleX".to_owned()],
-                ..Default::default()
-            },
-        });
+        let invalid_interaction = TestDirectory::new("invalid-interaction");
+        write_valid_source(&invalid_interaction.0, "1.0.0");
+        let mut config: Value = serde_json::from_slice(
+            &fs::read(invalid_interaction.0.join("model/pet.sprite.json")).unwrap(),
+        )
+        .unwrap();
+        config["interactions"]["tap"] = Value::String("missing".to_owned());
         fs::write(
-            duplicate_pointer.0.join(MANIFEST_FILE),
-            serde_json::to_vec_pretty(&manifest).unwrap(),
+            invalid_interaction.0.join("model/pet.sprite.json"),
+            serde_json::to_vec_pretty(&config).unwrap(),
         )
         .unwrap();
         assert!(
-            validate_directory(&duplicate_pointer.0)
+            validate_directory(&invalid_interaction.0)
                 .unwrap_err()
                 .to_string()
-                .contains("duplicate pointer")
-        );
-    }
-
-    #[test]
-    fn rejects_malformed_action_targets_and_non_png_overlays() {
-        let malformed_motion = TestDirectory::new("malformed-motion");
-        write_valid_source(&malformed_motion.0, "1.0.0");
-        fs::write(
-            malformed_motion.0.join("model/pet.model3.json"),
-            br#"{
-                "Version": 3,
-                "FileReferences": {
-                    "Moc": "pet.moc3",
-                    "Textures": ["textures/texture.png"],
-                    "Motions": {"Idle": [{}]},
-                    "Expressions": [
-                        {"Name": "smile", "File": "expressions/smile.exp3.json"}
-                    ]
-                }
-            }"#,
-        )
-        .unwrap();
-        assert!(
-            validate_directory(&malformed_motion.0)
-                .unwrap_err()
-                .to_string()
-                .contains("missing a File path")
-        );
-
-        let invalid_overlay = TestDirectory::new("invalid-overlay");
-        write_valid_source(&invalid_overlay.0, "1.0.0");
-        fs::create_dir_all(invalid_overlay.0.join("resources/left-keys")).unwrap();
-        fs::write(
-            invalid_overlay.0.join("resources/left-keys/A.svg"),
-            "<svg xmlns=\"http://www.w3.org/2000/svg\"/>",
-        )
-        .unwrap();
-        assert!(
-            validate_directory(&invalid_overlay.0)
-                .unwrap_err()
-                .to_string()
-                .contains("direct PNG children")
+                .contains("missing action 'missing'")
         );
     }
 
@@ -1622,6 +1663,16 @@ mod tests {
         assert!(schema["properties"].get("actions").is_some());
         assert!(schema["properties"].get("skins").is_none());
         assert!(schema["properties"].get("variants").is_none());
+        assert_eq!(
+            schema["$defs"]["runtime"]["properties"]["type"]["const"],
+            "sprite2d"
+        );
+
+        let sprite_schema: Value =
+            serde_json::from_str(include_str!("../../schemas/momopet-sprite-v1.schema.json"))
+                .unwrap();
+        assert_eq!(sprite_schema["additionalProperties"], false);
+        assert_eq!(sprite_schema["properties"]["clips"]["required"][0], "idle");
     }
 
     #[test]
@@ -1633,8 +1684,68 @@ mod tests {
 
         assert_eq!(manifest.protocol_version, PROTOCOL_VERSION);
         assert_eq!(manifest.runtime.profile_version, RUNTIME_PROFILE_VERSION);
-        assert_eq!(manifest.actions[1].id(), "wave");
-        assert!(manifest.input.is_some());
+        assert_eq!(manifest.actions[0].id(), "happy");
+        assert_eq!(manifest.runtime.runtime_type, PetRuntimeType::Sprite2d);
+
+        let config: SpriteConfig = serde_json::from_str(include_str!(
+            "../../examples/pet-package/model/pet.sprite.example.json"
+        ))
+        .unwrap();
+        assert!(config.clips["idle"].r#loop);
+        assert_eq!(config.frame_size.width, 512);
+    }
+
+    #[test]
+    fn checked_in_momo_uses_the_public_package_validator() {
+        let root =
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("assets/models/com.4096bytes.momopet.momo");
+        let validated = validate_directory(&root).unwrap();
+
+        assert_eq!(validated.manifest.id, "com.4096bytes.momopet.momo");
+        assert_eq!(
+            validated.manifest.runtime.runtime_type,
+            PetRuntimeType::Sprite2d
+        );
+        assert_eq!(validated.manifest.actions.len(), 3);
+
+        let config: SpriteConfig =
+            serde_json::from_slice(&fs::read(root.join("model/pet.sprite.json")).unwrap()).unwrap();
+        let expected = [
+            ("idle", 60, 12),
+            ("happy", 18, 18),
+            ("curious", 18, 18),
+            ("sleep", 8, 6),
+        ];
+
+        for (clip_id, unique_frames, fps) in expected {
+            let clip = &config.clips[clip_id];
+            assert_eq!(
+                clip.frames.iter().copied().collect::<HashSet<_>>().len(),
+                unique_frames
+            );
+            assert_eq!(clip.fps, fps);
+        }
+    }
+
+    #[test]
+    fn packs_numbered_frames_into_a_uniform_sprite_sheet() {
+        let frames = TestDirectory::new("sprite-frames");
+        let output = TestDirectory::new("sprite-output");
+        write_sprite_png(&frames.0.join("001.png"), 1);
+        write_sprite_png(&frames.0.join("002.png"), 1);
+        write_sprite_png(&frames.0.join("003.png"), 1);
+
+        let result = pack_sprite_sheet(&frames.0, &output.0.join("sheet.png"), 2).unwrap();
+
+        assert_eq!(result.frame_count, 3);
+        assert_eq!((result.columns, result.rows), (2, 2));
+        assert_eq!(
+            image::open(output.0.join("sheet.png"))
+                .unwrap()
+                .dimensions(),
+            (8, 8)
+        );
+        assert!(pack_sprite_sheet(&frames.0, &output.0.join("sheet.png"), 2).is_err());
     }
 
     #[test]

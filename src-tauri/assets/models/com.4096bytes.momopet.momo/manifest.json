@@ -1,0 +1,50 @@
+{
+  "protocolVersion": 1,
+  "id": "com.4096bytes.momopet.momo",
+  "version": "1.0.1",
+  "name": "Momo",
+  "description": "MomoPet 内建的聪明灵动黑白燕尾猫。",
+  "authors": [
+    {
+      "name": "4096bytes"
+    }
+  ],
+  "license": {
+    "name": "MIT License",
+    "file": "LICENSE.txt"
+  },
+  "runtime": {
+    "type": "sprite2d",
+    "profileVersion": 1,
+    "entry": "model/pet.sprite.json"
+  },
+  "presentation": {
+    "cover": "resources/cover.png"
+  },
+  "actions": [
+    {
+      "id": "happy",
+      "name": "开心",
+      "description": "开心地举起爪子轻轻跳一下。",
+      "type": "animation",
+      "clip": "happy",
+      "mode": "once"
+    },
+    {
+      "id": "curious",
+      "name": "好奇",
+      "description": "歪着头好奇地观察。",
+      "type": "animation",
+      "clip": "curious",
+      "mode": "once"
+    },
+    {
+      "id": "sleep",
+      "name": "睡觉",
+      "description": "安静地闭眼呼吸，再次触发即可醒来。",
+      "type": "animation",
+      "clip": "sleep",
+      "mode": "toggle"
+    }
+  ]
+}

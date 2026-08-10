@@ -1,0 +1,36 @@
+{
+  "frameSize": {
+    "width": 512,
+    "height": 512
+  },
+  "anchor": {
+    "x": 0.5,
+    "y": 1.0
+  },
+  "sheets": {
+    "main": "sprites/main.png"
+  },
+  "clips": {
+    "idle": {
+      "sheet": "main",
+      "frames": [0, 1, 2, 1],
+      "fps": 6,
+      "loop": true
+    },
+    "happy": {
+      "sheet": "main",
+      "frames": [3, 4, 5, 4],
+      "fps": 10,
+      "loop": false
+    },
+    "sleep": {
+      "sheet": "main",
+      "frames": [6, 7, 8, 7],
+      "fps": 4,
+      "loop": true
+    }
+  },
+  "interactions": {
+    "tap": "happy"
+  }
+}

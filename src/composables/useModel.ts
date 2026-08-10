@@ -4,11 +4,11 @@ import { message } from 'antdv-next'
 import { round } from 'es-toolkit'
 import { ref } from 'vue'
 
-import { ensureActionShortcuts, migrateLegacyActionShortcuts } from '@/features/pet-actions'
+import { ensureActionShortcuts } from '@/features/pet-actions'
 import { useModelStore } from '@/stores/model'
 import { usePetStore } from '@/stores/pet'
-import live2d from '@/utils/live2d'
 import { isMac } from '@/utils/platform'
+import sprite2d from '@/utils/sprite2d'
 
 const appWindow = getCurrentWebviewWindow()
 
@@ -28,19 +28,11 @@ export function useModel() {
     if (!currentModel) return
 
     try {
-      const { width, height } = await live2d.load(currentModel.entryPath, currentModel.path)
+      const { width, height } = await sprite2d.load(currentModel)
 
       modelSize.value = { width, height }
 
       await handleResize()
-
-      if (currentModel.isLegacy) {
-        migrateLegacyActionShortcuts(
-          modelStore.shortcuts,
-          currentModel.id,
-          currentModel.actions,
-        )
-      }
 
       ensureActionShortcuts(
         modelStore.shortcuts,
@@ -54,14 +46,14 @@ export function useModel() {
   }
 
   function handleDestroy() {
-    live2d.destroy()
+    sprite2d.destroy()
     modelSize.value = undefined
   }
 
   async function handleResize() {
     if (!modelSize.value) return
 
-    live2d.resizeModel(modelSize.value)
+    sprite2d.resizeModel(modelSize.value)
 
     const { width, height } = modelSize.value
 

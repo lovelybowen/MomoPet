@@ -12,16 +12,11 @@
     "authors",
     "license",
     "runtime",
-    "presentation",
-    "actions"
+    "presentation"
   ],
   "properties": {
     "protocolVersion": { "const": 1 },
-    "id": {
-      "type": "string",
-      "pattern": "^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$",
-      "maxLength": 128
-    },
+    "id": { "$ref": "#/$defs/reverseDomainId" },
     "version": {
       "type": "string",
       "minLength": 1,
@@ -41,36 +36,27 @@
     "presentation": { "$ref": "#/$defs/presentation" },
     "actions": {
       "type": "array",
-      "minItems": 1,
       "maxItems": 128,
-      "contains": {
-        "type": "object",
-        "required": ["id", "type"],
-        "properties": {
-          "id": { "const": "idle" },
-          "type": { "const": "motion" }
-        }
-      },
-      "maxContains": 1,
-      "items": {
-        "oneOf": [
-          { "$ref": "#/$defs/motionAction" },
-          { "$ref": "#/$defs/expressionAction" }
-        ]
-      }
+      "items": { "$ref": "#/$defs/animationAction" }
     },
-    "input": { "$ref": "#/$defs/input" },
     "extensions": {
       "type": "object",
-      "propertyNames": {
-        "pattern": "^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$",
-        "maxLength": 128
-      },
+      "propertyNames": { "$ref": "#/$defs/reverseDomainId" },
       "additionalProperties": true
     }
   },
   "$defs": {
-    "displayName": { "type": "string", "minLength": 1, "maxLength": 100, "pattern": "\\S" },
+    "displayName": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100,
+      "pattern": "\\S"
+    },
+    "reverseDomainId": {
+      "type": "string",
+      "pattern": "^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$",
+      "maxLength": 128
+    },
     "portablePath": {
       "type": "string",
       "minLength": 1,
@@ -81,7 +67,6 @@
       "type": "string",
       "pattern": "^[a-z][a-z0-9-]{0,63}$"
     },
-    "parameterId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "\\S" },
     "author": {
       "type": "object",
       "additionalProperties": false,
@@ -111,12 +96,12 @@
       "additionalProperties": false,
       "required": ["type", "profileVersion", "entry"],
       "properties": {
-        "type": { "const": "live2d-cubism" },
+        "type": { "const": "sprite2d" },
         "profileVersion": { "const": 1 },
         "entry": {
           "allOf": [
             { "$ref": "#/$defs/portablePath" },
-            { "pattern": "\\.model3\\.json$" }
+            { "pattern": "\\.sprite\\.json$" }
           ]
         }
       }
@@ -140,112 +125,17 @@
         }
       }
     },
-    "motionAction": {
+    "animationAction": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "name", "type", "motionGroup", "motionIndex"],
+      "required": ["id", "name", "type", "clip", "mode"],
       "properties": {
         "id": { "$ref": "#/$defs/actionId" },
         "name": { "$ref": "#/$defs/displayName" },
         "description": { "type": "string", "maxLength": 512 },
-        "type": { "const": "motion" },
-        "motionGroup": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "\\S" },
-        "motionIndex": { "type": "integer", "minimum": 0, "maximum": 65535 }
-      }
-    },
-    "expressionAction": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["id", "name", "type", "expression"],
-      "properties": {
-        "id": { "$ref": "#/$defs/actionId" },
-        "name": { "$ref": "#/$defs/displayName" },
-        "description": { "type": "string", "maxLength": 512 },
-        "type": { "const": "expression" },
-        "expression": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "\\S" }
-      }
-    },
-    "input": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["mode", "parameters"],
-      "properties": {
-        "mode": { "enum": ["standard", "keyboard", "gamepad"] },
-        "parameters": { "$ref": "#/$defs/inputParameters" }
-      },
-      "allOf": [
-        {
-          "if": {
-            "required": ["mode"],
-            "properties": { "mode": { "const": "gamepad" } }
-          },
-          "then": {
-            "properties": {
-              "parameters": { "required": ["gamepad"] }
-            }
-          }
-        }
-      ]
-    },
-    "inputParameters": {
-      "type": "object",
-      "additionalProperties": false,
-      "minProperties": 1,
-      "properties": {
-        "hands": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": ["left", "right"],
-          "properties": {
-            "left": { "$ref": "#/$defs/parameterId" },
-            "right": { "$ref": "#/$defs/parameterId" }
-          }
-        },
-        "mouseButtons": {
-          "type": "object",
-          "minProperties": 1,
-          "maxProperties": 32,
-          "propertyNames": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "\\S" },
-          "additionalProperties": { "$ref": "#/$defs/parameterId" }
-        },
-        "pointer": {
-          "type": "array",
-          "minItems": 1,
-          "maxItems": 32,
-          "uniqueItems": true,
-          "items": { "$ref": "#/$defs/parameterId" }
-        },
-        "gamepad": { "$ref": "#/$defs/gamepadParameters" }
-      }
-    },
-    "gamepadParameters": {
-      "type": "object",
-      "additionalProperties": false,
-      "minProperties": 1,
-      "properties": {
-        "axes": {
-          "type": "object",
-          "minProperties": 1,
-          "maxProperties": 32,
-          "propertyNames": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "\\S" },
-          "additionalProperties": { "$ref": "#/$defs/parameterId" }
-        },
-        "thumbButtons": {
-          "type": "object",
-          "minProperties": 1,
-          "maxProperties": 32,
-          "propertyNames": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "\\S" },
-          "additionalProperties": { "$ref": "#/$defs/parameterId" }
-        },
-        "stickHands": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": ["left", "right"],
-          "properties": {
-            "left": { "$ref": "#/$defs/parameterId" },
-            "right": { "$ref": "#/$defs/parameterId" }
-          }
-        }
+        "type": { "const": "animation" },
+        "clip": { "$ref": "#/$defs/actionId" },
+        "mode": { "enum": ["once", "toggle"] }
       }
     },
     "httpUrl": {

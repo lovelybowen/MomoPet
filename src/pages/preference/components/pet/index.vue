@@ -4,20 +4,12 @@ import { Divider, Flex, InputNumber, Slider, SpaceAddon, SpaceCompact, Switch } 
 import ProListItem from '@/components/pro-list-item/index.vue'
 import ProList from '@/components/pro-list/index.vue'
 import { usePetStore } from '@/stores/pet'
-import { isWindows } from '@/utils/platform'
 
 const petStore = usePetStore()
 </script>
 
 <template>
   <ProList :title="$t('pages.preference.pet.labels.modelSettings')">
-    <ProListItem
-      :description="$t('pages.preference.pet.hints.inputVisualizer')"
-      :title="$t('pages.preference.pet.labels.inputVisualizer')"
-    >
-      <Switch v-model:checked="petStore.model.inputVisualizer" />
-    </ProListItem>
-
     <ProListItem
       :description="$t('pages.preference.pet.hints.mirrorMode')"
       :title="$t('pages.preference.pet.labels.mirrorMode')"
@@ -26,46 +18,10 @@ const petStore = usePetStore()
     </ProListItem>
 
     <ProListItem
-      :description="$t('pages.preference.pet.hints.mouseMirror')"
-      :title="$t('pages.preference.pet.labels.mouseMirror')"
-    >
-      <Switch v-model:checked="petStore.model.mouseMirror" />
-    </ProListItem>
-
-    <ProListItem
-      :description="$t('pages.preference.pet.hints.ignoreMouse')"
-      :title="$t('pages.preference.pet.labels.ignoreMouse')"
-    >
-      <Switch v-model:checked="petStore.model.ignoreMouse" />
-    </ProListItem>
-
-    <ProListItem
-      :description="$t('pages.preference.pet.hints.motionSound')"
-      :title="$t('pages.preference.pet.labels.motionSound')"
-    >
-      <Switch v-model:checked="petStore.model.motionSound" />
-    </ProListItem>
-
-    <ProListItem
       :description="$t('pages.preference.pet.hints.behavior')"
       :title="$t('pages.preference.pet.labels.behavior')"
     >
       <Switch v-model:checked="petStore.model.behavior" />
-    </ProListItem>
-
-    <ProListItem
-      v-if="isWindows"
-      :description="$t('pages.preference.pet.hints.autoReleaseDelay')"
-      :title="$t('pages.preference.pet.labels.autoReleaseDelay')"
-    >
-      <SpaceCompact>
-        <InputNumber
-          v-model:value="petStore.model.autoReleaseDelay"
-          class="w-20"
-        />
-
-        <SpaceAddon>s</SpaceAddon>
-      </SpaceCompact>
     </ProListItem>
 
     <ProListItem

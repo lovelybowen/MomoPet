@@ -64,15 +64,28 @@ walk(root)
 const tauriConfig = JSON.parse(readFileSync(join(root, 'src-tauri/tauri.conf.json'), 'utf8'))
 const expectedScope = [
   '$RESOURCE/assets/models/**/*',
-  '$APPDATA/custom-models/**/*',
+  '$APPDATA/pets/**/*',
 ]
 
-if (tauriConfig.identifier !== 'com.4096bytes.momopet.live2d') {
+if (tauriConfig.identifier !== 'com.bytes4096.momopet') {
   violations.push('src-tauri/tauri.conf.json: unexpected application identifier')
 }
 
-if (tauriConfig.app?.security?.csp == null) {
+const csp = tauriConfig.app?.security?.csp
+
+if (csp == null) {
   violations.push('src-tauri/tauri.conf.json: CSP must be enabled')
+} else if (csp.includes('\'unsafe-eval\'')) {
+  violations.push('src-tauri/tauri.conf.json: CSP must not allow unsafe-eval')
+}
+
+const spriteRuntime = readFileSync(join(root, 'src/utils/sprite2d.ts'), 'utf8')
+if (!/import\s+['"]pixi\.js\/unsafe-eval['"]/.test(spriteRuntime)) {
+  violations.push('src/utils/sprite2d.ts: PixiJS CSP-safe evaluator must be installed')
+}
+
+if (!/import\s+\{[^}]*readFile[^}]*\}\s+from\s+['"]@tauri-apps\/plugin-fs['"]/.test(spriteRuntime)) {
+  violations.push('src/utils/sprite2d.ts: sprite sheets must use scoped filesystem reads')
 }
 
 if (tauriConfig.app?.security?.dangerousDisableAssetCspModification === true) {
@@ -100,6 +113,11 @@ for (const capability of ['main.json', 'preference.json']) {
       violations.push(`src-tauri/capabilities/${capability}: contains ${permission}`)
     }
   }
+}
+
+const mainCapability = readFileSync(join(root, 'src-tauri/capabilities/main.json'), 'utf8')
+if (!mainCapability.includes('fs:allow-read-file')) {
+  violations.push('src-tauri/capabilities/main.json: scoped sprite sheet reads are not enabled')
 }
 
 if (violations.length > 0) {

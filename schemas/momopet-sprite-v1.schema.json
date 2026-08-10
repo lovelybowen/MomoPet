@@ -1,0 +1,96 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://4096bytes.com/schemas/momopet-sprite-v1.schema.json",
+  "title": "MomoPet Sprite2D Runtime Profile V1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["frameSize", "sheets", "clips"],
+  "properties": {
+    "frameSize": { "$ref": "#/$defs/size" },
+    "anchor": { "$ref": "#/$defs/anchor" },
+    "sheets": {
+      "type": "object",
+      "minProperties": 1,
+      "maxProperties": 32,
+      "propertyNames": { "$ref": "#/$defs/id" },
+      "additionalProperties": {
+        "allOf": [
+          { "$ref": "#/$defs/portablePath" },
+          { "pattern": "\\.[Pp][Nn][Gg]$" }
+        ]
+      }
+    },
+    "clips": {
+      "type": "object",
+      "minProperties": 1,
+      "maxProperties": 128,
+      "required": ["idle"],
+      "propertyNames": { "$ref": "#/$defs/id" },
+      "properties": {
+        "idle": {
+          "allOf": [
+            { "$ref": "#/$defs/clip" },
+            {
+              "type": "object",
+              "properties": { "loop": { "const": true } }
+            }
+          ]
+        }
+      },
+      "additionalProperties": { "$ref": "#/$defs/clip" }
+    },
+    "interactions": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "tap": { "$ref": "#/$defs/id" }
+      }
+    }
+  },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{0,63}$"
+    },
+    "portablePath": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 240,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*(?:/[A-Za-z0-9][A-Za-z0-9._-]*)*$"
+    },
+    "size": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["width", "height"],
+      "properties": {
+        "width": { "type": "integer", "minimum": 1, "maximum": 8192 },
+        "height": { "type": "integer", "minimum": 1, "maximum": 8192 }
+      }
+    },
+    "anchor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["x", "y"],
+      "properties": {
+        "x": { "type": "number", "minimum": 0, "maximum": 1 },
+        "y": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+    "clip": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sheet", "frames", "fps", "loop"],
+      "properties": {
+        "sheet": { "$ref": "#/$defs/id" },
+        "frames": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 512,
+          "items": { "type": "integer", "minimum": 0 }
+        },
+        "fps": { "type": "integer", "minimum": 1, "maximum": 60 },
+        "loop": { "type": "boolean" }
+      }
+    }
+  }
+}

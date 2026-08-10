@@ -103,7 +103,7 @@
         "hints": {
           "appInfo": "Copy app information and provide it to bug issue.",
           "copySuccess": "Copied Successfully",
-          "license": "MomoPet code is MIT licensed. Cubism Core and model assets remain under their own licenses."
+          "license": "MomoPet code is MIT licensed. Pet assets remain under their own licenses."
         },
         "buttons": {
           "copy": "Copy"
@@ -114,8 +114,6 @@
         "labels": {
           "modelSettings": "Model Settings",
           "mirrorMode": "Mirror Mode",
-          "mouseMirror": "Mouse Mirror",
-          "ignoreMouse": "Ignore Mouse Events",
           "windowSettings": "Window Settings",
           "passThrough": "Pass Through",
           "alwaysOnTop": "Always on Top",
@@ -123,27 +121,19 @@
           "windowSize": "Window Size",
           "windowRadius": "Window Radius",
           "opacity": "Opacity",
-          "motionSound": "Motion Sound",
           "behavior": "Custom Actions",
-          "autoReleaseDelay": "Auto Release Delay",
           "hideOnHover": "Hide on Hover",
-          "maxFPS": "Max Frame Rate",
-          "inputVisualizer": "Example input mapping"
+          "maxFPS": "Max Frame Rate"
         },
         "hints": {
           "mirrorMode": "When enabled, the model will be mirrored horizontally.",
-          "mouseMirror": "When enabled, the mouse will mirror the hand movement.",
-          "ignoreMouse": "When enabled, the model will not respond to mouse events. Useful for keyboard mode or gamepad mode.",
-          "motionSound": "When enabled, the model will play corresponding sound effects when performing actions (if they exist).",
           "behavior": "When enabled, the pet package's declared actions can be configured and triggered.",
           "passThrough": "When enabled, clicks pass through the window without affecting it.",
           "alwaysOnTop": "When enabled, the window stays above all other windows.",
           "keepInScreen": "When enabled, the window automatically stays within the screen boundaries.",
           "windowSize": "Move mouse to window edge, or hold Shift and right-drag to resize.",
-          "autoReleaseDelay": "On Windows, some system keys cannot capture release events and will auto-release after timeout.",
           "hideOnHover": "When enabled, the window hides automatically on mouse hover. You can set a delay; 0 means hide immediately.",
-          "maxFPS": "Limit the maximum frame rate for model rendering. Lowering the frame rate can reduce CPU/GPU usage.",
-          "inputVisualizer": "Drive model parameters with keyboard, mouse, and gamepad input. This example module can be disabled or replaced."
+          "maxFPS": "Limit the maximum frame rate for model rendering. Lowering the frame rate can reduce CPU/GPU usage."
         }
       }
     }
@@ -167,14 +157,6 @@
         "quitApp": "Quit App",
         "hidePet": "Hide Pet",
         "showPet": "Show Pet"
-      }
-    }
-  },
-  "utils": {
-    "live2d": {
-      "hints": {
-        "notFound": "Model master configuration file not found, please ensure the model files are complete.",
-        "coreMissing": "Live2D Cubism Core is not installed. Follow the project documentation to install it locally."
       }
     }
   }

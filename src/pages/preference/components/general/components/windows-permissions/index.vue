@@ -14,10 +14,6 @@ const { t } = useI18n()
 
 onMounted(async () => {
   authorized.value = await isRunningAsAdministrator()
-
-  if (authorized.value) return
-
-  showAdministratorGuide()
 })
 
 async function showAdministratorGuide() {

@@ -20,20 +20,18 @@ function createInstalledModel(overrides: Partial<InstalledModel> = {}): Installe
     name: 'Example Pet',
     authors: [{ name: 'Example Author' }],
     path: '/models/com.example.pet',
-    entryPath: '/models/com.example.pet/model.model3.json',
-    resourcePath: '/models/com.example.pet/resources',
-    mode: 'standard',
+    entryPath: '/models/com.example.pet/model/pet.sprite.json',
+    runtimeType: 'sprite2d',
     actions: [
       {
-        id: 'idle',
-        name: 'Idle',
-        type: 'motion',
-        motionGroup: 'Idle',
-        motionIndex: 0,
+        id: 'happy',
+        name: 'Happy',
+        type: 'animation',
+        clip: 'happy',
+        mode: 'once',
       },
     ],
     isBuiltin: false,
-    isLegacy: false,
     ...overrides,
   }
 }
@@ -61,17 +59,14 @@ describe('desktop pet stores', () => {
       createInstalledModel({
         id: 'com.example.second',
         path: '/new/second',
-        entryPath: '/new/second/model.model3.json',
-        resourcePath: '/new/second/resources',
-        mode: 'keyboard',
+        entryPath: '/new/second/pet.sprite.json',
       }),
     ]
     const store = useModelStore()
     store.currentModel = createInstalledModel({
       id: installed[1].id,
       path: '/stale/path',
-      entryPath: '/stale/path/model.model3.json',
-      resourcePath: '/stale/path/resources',
+      entryPath: '/stale/path/pet.sprite.json',
     })
     invokeMock.mockResolvedValue(installed)
 
@@ -83,7 +78,7 @@ describe('desktop pet stores', () => {
   it('uses generic pet settings without deprecated migration fields', () => {
     const state = usePetStore().$state
 
-    expect(state).toHaveProperty('model.inputVisualizer', true)
+    expect(state).toHaveProperty('model.maxFPS', 60)
     expect(state).toHaveProperty('window.alwaysOnTop', true)
     expect(state).not.toHaveProperty('migrated')
     expect(state).not.toHaveProperty('mirrorMode')

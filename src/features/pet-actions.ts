@@ -1,5 +1,3 @@
-import type { PetAction } from '@/stores/model'
-
 const DIGIT_KEYS = '1234567890'.split('') as readonly string[]
 const LETTER_KEYS = 'QWERTYUIOPASDFGHJKLZXCVBNM'.split('') as readonly string[]
 
@@ -55,24 +53,5 @@ export function ensureActionShortcuts(
 
     shortcuts[shortcutId] = shortcut
     usedShortcuts.add(shortcut)
-  }
-}
-
-export function migrateLegacyActionShortcuts(
-  shortcuts: Record<string, string>,
-  petId: string,
-  actions: readonly PetAction[],
-) {
-  let expressionIndex = 0
-
-  for (const action of actions) {
-    const nextId = getActionShortcutId(petId, action.id)
-    const legacyId = action.type === 'motion'
-      ? `${petId}:motion:${action.motionGroup}:${action.motionIndex}`
-      : `${petId}:expression:${expressionIndex++}`
-
-    if (!shortcuts[nextId] && shortcuts[legacyId]) {
-      shortcuts[nextId] = shortcuts[legacyId]
-    }
   }
 }

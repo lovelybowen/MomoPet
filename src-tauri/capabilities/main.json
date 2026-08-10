@@ -17,12 +17,13 @@
     "prevent-default:default",
     "fs:allow-exists",
     "fs:allow-read-dir",
+    "fs:allow-read-file",
     "fs:allow-read-text-file",
     {
       "identifier": "fs:scope",
       "allow": [
         { "path": "$RESOURCE/assets/models/**/*" },
-        { "path": "$APPDATA/custom-models/**/*" }
+        { "path": "$APPDATA/pets/**/*" }
       ]
     }
   ]

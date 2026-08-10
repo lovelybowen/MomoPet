@@ -103,7 +103,7 @@
         "hints": {
           "appInfo": "複製軟體資訊並提供給 Bug Issue。",
           "copySuccess": "複製成功",
-          "license": "MomoPet 程式碼使用 MIT License；Cubism Core 與模型素材受各自授權約束。"
+          "license": "MomoPet 程式碼使用 MIT License；寵物素材受各自授權約束。"
         },
         "buttons": {
           "copy": "複製"
@@ -114,8 +114,6 @@
         "labels": {
           "modelSettings": "模型設定",
           "mirrorMode": "鏡像模式",
-          "mouseMirror": "滑鼠游標鏡像",
-          "ignoreMouse": "忽略滑鼠事件",
           "windowSettings": "視窗設定",
           "passThrough": "視窗穿透",
           "alwaysOnTop": "視窗置頂",
@@ -123,27 +121,19 @@
           "windowSize": "視窗尺寸",
           "windowRadius": "視窗圓角",
           "opacity": "不透明度",
-          "motionSound": "動作音效",
           "behavior": "自訂動作",
-          "autoReleaseDelay": "按鍵自動釋放延遲",
           "hideOnHover": "滑鼠游標移入隱藏",
-          "maxFPS": "最大幀率",
-          "inputVisualizer": "範例輸入映射"
+          "maxFPS": "最大幀率"
         },
         "hints": {
           "mirrorMode": "啟用後，模型將水平鏡像翻轉。",
-          "mouseMirror": "啟用後，滑鼠游標將鏡像跟隨手部移動。",
-          "ignoreMouse": "啟用後，模型將不再回應滑鼠事件，適用於鍵盤模式或手柄模式。",
-          "motionSound": "啟用後，模型執行動作時會播放對應音效（如果存在）。",
           "behavior": "啟用後，可以設定和觸發寵物包宣告的動作。",
           "passThrough": "啟用後，視窗不影響對其他應用程式的操作。",
           "alwaysOnTop": "啟用後，視窗始終顯示在其他應用程式上方。",
           "keepInScreen": "啟用後，視窗會自動調整位置，防止超出螢幕邊界。",
           "windowSize": "將滑鼠游標移至視窗邊緣，或按住 Shift 並右鍵拖曳，也可以調整視窗大小。",
-          "autoReleaseDelay": "由於 Windows 下部份系統級按鍵無法擷取釋放事件，超時後將自動視為已釋放。",
           "hideOnHover": "啟用後，滑鼠游標懸停視窗時自動隱藏。可設定延遲時間，0 表示立即隱藏。",
-          "maxFPS": "限制模型渲染的最大幀率，降低幀率可以減少 CPU/GPU 佔用。",
-          "inputVisualizer": "使用鍵盤、滑鼠和控制器驅動模型參數。可隨時關閉或替換此範例模組。"
+          "maxFPS": "限制模型渲染的最大幀率，降低幀率可以減少 CPU/GPU 佔用。"
         }
       }
     }
@@ -167,14 +157,6 @@
         "quitApp": "退出應用程式",
         "hidePet": "隱藏桌寵",
         "showPet": "顯示桌寵"
-      }
-    }
-  },
-  "utils": {
-    "live2d": {
-      "hints": {
-        "notFound": "未找到模型主設定檔，請確認模型文件是否完整。",
-        "coreMissing": "尚未安裝 Live2D Cubism Core。請先依照專案文件完成本機安裝。"
       }
     }
   }
